@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/centre-shortcut.sh"
+source "$SCRIPT_DIR/lib/python.sh"
 
 assert_true() {
     local condition="$1"
@@ -35,6 +36,32 @@ assert_contains() {
         exit 1
     fi
 }
+
+parse_powershell_status_json_for_test() {
+    local status_json="$1"
+    local parsed_output=""
+
+    parsed_output="$(
+        printf '%s' "$status_json" | "${PYTHON_CMD[@]}" -c 'import json, sys
+data = json.loads(sys.stdin.read() or "{}")
+print("true" if data.get("shortcuts_detected") else "false")
+print("true" if data.get("mismatch_detected") else "false")
+print(data.get("current_shortcut_path", ""))
+print(data.get("expected_shortcut_path", ""))
+print("true" if data.get("is_legacy_projects_layout") else "false")'
+    )"
+
+    TEST_PS_SHORTCUT_DETECTED="$(printf '%s\n' "$parsed_output" | sed -n '1p')"
+    TEST_PS_SHORTCUT_MISMATCH="$(printf '%s\n' "$parsed_output" | sed -n '2p')"
+    TEST_PS_CURRENT_PATH="$(printf '%s\n' "$parsed_output" | sed -n '3p')"
+    TEST_PS_EXPECTED_PATH="$(printf '%s\n' "$parsed_output" | sed -n '4p')"
+    TEST_PS_LEGACY_LAYOUT="$(printf '%s\n' "$parsed_output" | sed -n '5p')"
+}
+
+if ! resolve_python_cmd; then
+    printf 'Python 3 is required for test-centre-shortcut.sh\n' >&2
+    exit 1
+fi
 
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/agentic-os-centre-shortcut.XXXXXX")"
 trap 'rm -rf "$TEST_ROOT"' EXIT
@@ -89,5 +116,14 @@ assert_equal "1" "$AGENTIC_OS_CENTRE_REPAIR_UPDATED_COUNT" "Repair should update
 repaired_content="$(cat "$bash_rc")"
 assert_contains "$repaired_content" "$centre_script" "Repair should point the shortcut to the current repo."
 assert_true "$([[ "$repaired_content" == *"$legacy_script"* ]] && printf 'false' || printf 'true')" "Repair should remove the stale repo path."
+
+# PowerShell status parser should keep the mismatch paths and legacy-layout flag.
+status_json='{"shortcuts_detected": true, "mismatch_detected": true, "current_shortcut_path": "C:\\legacy\\projects\\agentic-os\\scripts\\centre.ps1", "expected_shortcut_path": "C:\\current\\agentic-os\\scripts\\centre.ps1", "is_legacy_projects_layout": true}'
+parse_powershell_status_json_for_test "$status_json"
+assert_equal "true" "$TEST_PS_SHORTCUT_DETECTED" "PowerShell parser should report that a shortcut exists."
+assert_equal "true" "$TEST_PS_SHORTCUT_MISMATCH" "PowerShell parser should report mismatch_detected=true."
+assert_equal "C:\\legacy\\projects\\agentic-os\\scripts\\centre.ps1" "$TEST_PS_CURRENT_PATH" "PowerShell parser should keep the stale current path."
+assert_equal "C:\\current\\agentic-os\\scripts\\centre.ps1" "$TEST_PS_EXPECTED_PATH" "PowerShell parser should keep the expected repo path."
+assert_equal "true" "$TEST_PS_LEGACY_LAYOUT" "PowerShell parser should keep the legacy projects-folder flag."
 
 printf '  [OK] test-centre-shortcut.sh passed\n'

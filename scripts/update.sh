@@ -22,6 +22,46 @@ ok()    { printf "  ${GREEN}✓ %b${NC}\n" "$1"; }
 warn()  { printf "  ${YELLOW}→ %b${NC}\n" "$1"; }
 bullet(){ printf "    ${DIM}•${NC} %b\n" "$1"; }
 
+ask_yes_no() {
+    local prompt="$1"
+    local default_answer="${2:-Y}"
+    local reply=""
+
+    if [[ "$default_answer" == "N" ]]; then
+        printf "  ${BOLD}%s${NC} [y/N] " "$prompt"
+    else
+        printf "  ${BOLD}%s${NC} [Y/n] " "$prompt"
+    fi
+
+    if ! read -r reply < /dev/tty; then
+        reply="$default_answer"
+    fi
+
+    reply="${reply:-$default_answer}"
+    [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+print_warning_box_start() {
+    local title="$1"
+    echo ""
+    printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    printf "${YELLOW}${BOLD}  %s${NC}\n" "$title"
+    printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    echo ""
+}
+
+print_warning_box_line() {
+    printf "  %s\n" "$1"
+}
+
+print_warning_box_path() {
+    printf "  ${BOLD}%-18s${NC} %s\n" "$1" "$2"
+}
+
+print_warning_box_end() {
+    echo ""
+}
+
 # ---------- Repo root from script location ----------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -66,6 +106,138 @@ mark_reviewed() {
         mv "${REVIEWED_STATE}.tmp" "$REVIEWED_STATE"
     fi
     echo "${file}:${current_md5}" >> "$REVIEWED_STATE"
+}
+
+CENTRE_SHORTCUT_HELPER_LOADED="false"
+CENTRE_SHORTCUT_MISMATCH="false"
+CENTRE_SHORTCUT_CURRENT_PATH=""
+CENTRE_SHORTCUT_EXPECTED_PATH=""
+CENTRE_SHORTCUT_LEGACY_LAYOUT="false"
+
+load_centre_shortcut_helper() {
+    local helper_path="$SCRIPT_DIR/lib/centre-shortcut.sh"
+
+    if [[ "$CENTRE_SHORTCUT_HELPER_LOADED" == "true" ]]; then
+        return 0
+    fi
+
+    [[ -f "$helper_path" ]] || return 1
+
+    # shellcheck disable=SC1090
+    source "$helper_path"
+    CENTRE_SHORTCUT_HELPER_LOADED="true"
+}
+
+get_powershell_shortcut_status() {
+    local ps_script="$SCRIPT_DIR/install-centre-alias.ps1"
+
+    [[ -f "$ps_script" ]] || return 1
+    command -v powershell.exe >/dev/null 2>&1 || return 1
+
+    if command -v cygpath >/dev/null 2>&1; then
+        ps_script="$(cygpath -w "$ps_script")"
+    fi
+
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ps_script" -Status 2>/dev/null | tr -d '\r'
+}
+
+parse_powershell_shortcut_status() {
+    local status_json="$1"
+    local parsed_output=""
+
+    parsed_output="$(
+        printf '%s' "$status_json" | "${PYTHON_CMD[@]}" -c 'import json, sys
+data = json.loads(sys.stdin.read() or "{}")
+print("true" if data.get("shortcuts_detected") else "false")
+print("true" if data.get("mismatch_detected") else "false")
+print(data.get("current_shortcut_path", ""))
+print(data.get("expected_shortcut_path", ""))
+print("true" if data.get("is_legacy_projects_layout") else "false")'
+    )"
+
+    POWERSHELL_SHORTCUT_DETECTED="$(printf '%s\n' "$parsed_output" | sed -n '1p')"
+    POWERSHELL_SHORTCUT_MISMATCH="$(printf '%s\n' "$parsed_output" | sed -n '2p')"
+    POWERSHELL_SHORTCUT_CURRENT_PATH="$(printf '%s\n' "$parsed_output" | sed -n '3p')"
+    POWERSHELL_SHORTCUT_EXPECTED_PATH="$(printf '%s\n' "$parsed_output" | sed -n '4p')"
+    POWERSHELL_SHORTCUT_LEGACY_LAYOUT="$(printf '%s\n' "$parsed_output" | sed -n '5p')"
+
+    POWERSHELL_SHORTCUT_DETECTED="${POWERSHELL_SHORTCUT_DETECTED:-false}"
+    POWERSHELL_SHORTCUT_MISMATCH="${POWERSHELL_SHORTCUT_MISMATCH:-false}"
+    POWERSHELL_SHORTCUT_LEGACY_LAYOUT="${POWERSHELL_SHORTCUT_LEGACY_LAYOUT:-false}"
+}
+
+check_centre_shortcut_mismatch() {
+    local unix_centre_script="$SCRIPT_DIR/centre.sh"
+    local ps_status_json=""
+    local i=0
+
+    CENTRE_SHORTCUT_MISMATCH="false"
+    CENTRE_SHORTCUT_CURRENT_PATH=""
+    CENTRE_SHORTCUT_EXPECTED_PATH=""
+    CENTRE_SHORTCUT_LEGACY_LAYOUT="false"
+
+    if load_centre_shortcut_helper; then
+        agentic_os_centre_scan_unix_shortcuts "$unix_centre_script"
+        for i in "${!AGENTIC_OS_CENTRE_SCAN_FILES[@]}"; do
+            if [[ "${AGENTIC_OS_CENTRE_SCAN_MATCHES[$i]}" == "true" ]]; then
+                continue
+            fi
+
+            CENTRE_SHORTCUT_MISMATCH="true"
+            CENTRE_SHORTCUT_CURRENT_PATH="${AGENTIC_OS_CENTRE_SCAN_CURRENT[$i]}"
+            CENTRE_SHORTCUT_EXPECTED_PATH="$unix_centre_script"
+            CENTRE_SHORTCUT_LEGACY_LAYOUT="${AGENTIC_OS_CENTRE_SCAN_LEGACY_LAYOUT[$i]}"
+            break
+        done
+    fi
+
+    if ps_status_json="$(get_powershell_shortcut_status)"; then
+        parse_powershell_shortcut_status "$ps_status_json"
+        if [[ "$POWERSHELL_SHORTCUT_MISMATCH" == "true" ]]; then
+            if [[ "$CENTRE_SHORTCUT_MISMATCH" != "true" ]]; then
+                CENTRE_SHORTCUT_CURRENT_PATH="$POWERSHELL_SHORTCUT_CURRENT_PATH"
+                CENTRE_SHORTCUT_EXPECTED_PATH="$POWERSHELL_SHORTCUT_EXPECTED_PATH"
+                CENTRE_SHORTCUT_LEGACY_LAYOUT="$POWERSHELL_SHORTCUT_LEGACY_LAYOUT"
+            elif [[ "$POWERSHELL_SHORTCUT_LEGACY_LAYOUT" == "true" ]]; then
+                CENTRE_SHORTCUT_LEGACY_LAYOUT="true"
+            fi
+
+            CENTRE_SHORTCUT_MISMATCH="true"
+        fi
+    fi
+}
+
+maybe_offer_centre_shortcut_repair() {
+    check_centre_shortcut_mismatch
+
+    if [[ "$CENTRE_SHORTCUT_MISMATCH" != "true" ]]; then
+        return 0
+    fi
+
+    print_warning_box_start "centre shortcut points to another install"
+    print_warning_box_line "Your saved 'centre' shortcut is still pointing to an older Agentic OS folder."
+    print_warning_box_line "Repairing it will make 'centre' open this repo instead."
+    print_warning_box_path "Current shortcut:" "$CENTRE_SHORTCUT_CURRENT_PATH"
+    print_warning_box_path "Expected path:" "$CENTRE_SHORTCUT_EXPECTED_PATH"
+    if [[ "$CENTRE_SHORTCUT_LEGACY_LAYOUT" == "true" ]]; then
+        print_warning_box_line "That old path is inside a projects folder. That was an older layout and should no longer be used."
+    fi
+    print_warning_box_end
+
+    if ask_yes_no "Repair the shortcut to this repo now?" "Y"; then
+        if bash "$SCRIPT_DIR/repair-centre-shortcut.sh" >/dev/null 2>&1; then
+            ok "Repaired the saved 'centre' shortcut for this repo."
+            info "Open a new terminal window before using 'centre' again."
+        else
+            warn "Automatic shortcut repair failed."
+            info "You can repair it later with:"
+            printf "     ${BOLD}bash scripts/repair-centre-shortcut.sh${NC}\n"
+        fi
+    else
+        info "No shortcut files were changed."
+        info "If you want to repair it later, run:"
+        printf "     ${BOLD}bash scripts/repair-centre-shortcut.sh${NC}\n"
+    fi
 }
 
 # ---------- Protected paths (never overwritten) ----------
@@ -583,9 +755,7 @@ else
     [[ -n "$CHANGED_OTHER" ]] && SYS_FILES_FOR_DIFF="${SYS_FILES_FOR_DIFF}${CHANGED_OTHER}"
 
     if [[ -n "$SYS_FILES_FOR_DIFF" ]]; then
-        printf "  ${BOLD}Want to see the full diff?${NC} [y/n] "
-        read -r show_diff < /dev/tty
-        if [[ "$show_diff" =~ ^[yY]$ ]]; then
+        if ask_yes_no "Want to see the full diff?" "N"; then
             echo ""
             printf "$SYS_FILES_FOR_DIFF" | while IFS= read -r file; do
                 file=$(echo "$file" | sed 's/^[[:space:]]*//')
@@ -1503,12 +1673,16 @@ if [[ -d "${REPO_ROOT}/clients" ]]; then
     fi
 fi
 
+maybe_offer_centre_shortcut_repair
+
 LEGACY_CENTRE_DIR="${REPO_ROOT}/projects/briefs/command-centre"
 if [[ -d "$LEGACY_CENTRE_DIR" ]]; then
-    echo ""
-    warn "Legacy Command Centre folder detected at projects/briefs/command-centre/"
-    info "The active app now lives in command-centre/ at the repo root."
-    info "The old folder is no longer used and can be deleted manually when you're ready."
+    print_warning_box_start "Old Command Centre folder found"
+    print_warning_box_line "You still have an older local copy at projects/briefs/command-centre/."
+    print_warning_box_line "Agentic OS now uses command-centre/ at the top of this repo."
+    print_warning_box_line "Nothing is broken. The old folder is not used anymore."
+    print_warning_box_line "You can delete it later after you confirm the new Command Centre works."
+    print_warning_box_end
 fi
 
 echo ""
