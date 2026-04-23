@@ -13,7 +13,9 @@
 
 [CmdletBinding()]
 param(
-    [string]$DocumentsRoot
+    [string]$DocumentsRoot,
+    [switch]$Status,
+    [switch]$ExistingOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -103,6 +105,24 @@ function Test-HasCentreBlock {
     )
 }
 
+function Get-CentreScriptPathFromContent {
+    param(
+        [string]$Content
+    )
+
+    if ([string]::IsNullOrEmpty($Content)) {
+        return ""
+    }
+
+    $pattern = '(?ms)function centre \{\r?\n\s*&\s*"([^"]+)"\s+@Args\r?\n\}'
+    $match = [regex]::Match($Content, $pattern)
+    if ($match.Success) {
+        return $match.Groups[1].Value
+    }
+
+    return ""
+}
+
 function Remove-CentreBlocks {
     param(
         [string]$Content
@@ -157,14 +177,66 @@ function Ensure-ProfileFile {
     }
 }
 
+function Get-StatusPayload {
+    param(
+        [object[]]$Targets,
+        [string]$ExpectedScriptPath
+    )
+
+    $profiles = @()
+
+    foreach ($target in $Targets) {
+        $content = ""
+        if (Test-Path -LiteralPath $target.Path) {
+            $content = Get-Content -LiteralPath $target.Path -Raw -ErrorAction SilentlyContinue
+        }
+
+        if (-not (Test-HasCentreBlock -Content $content)) {
+            continue
+        }
+
+        $currentScriptPath = Get-CentreScriptPathFromContent -Content $content
+        $profiles += [pscustomobject]@{
+            name = $target.Name
+            profile_path = $target.Path
+            current_script_path = $currentScriptPath
+            matches_current_repo = ($currentScriptPath -eq $ExpectedScriptPath)
+            is_legacy_projects_layout = ($currentScriptPath -match '[\\/]+projects[\\/]')
+        }
+    }
+
+    $firstMismatch = $profiles | Where-Object { -not $_.matches_current_repo } | Select-Object -First 1
+
+    return [pscustomobject]@{
+        expected_script_path = $ExpectedScriptPath
+        shortcuts_detected = ($profiles.Count -gt 0)
+        mismatch_detected = ($null -ne $firstMismatch)
+        current_shortcut_path = if ($null -ne $firstMismatch) { $firstMismatch.current_script_path } else { "" }
+        expected_shortcut_path = $ExpectedScriptPath
+        is_legacy_projects_layout = if ($null -ne $firstMismatch) { $firstMismatch.is_legacy_projects_layout } else { $false }
+        profiles = $profiles
+    }
+}
+
 if (-not (Test-Path -LiteralPath $CentreScript)) {
     Fail "centre.ps1 not found at $CentreScript"
     exit 1
 }
 
+$modeCount = @($Status, $ExistingOnly) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+if ($modeCount -gt 1) {
+    throw "Choose either -Status or -ExistingOnly, not both."
+}
+
 $resolvedDocumentsRoot = Get-DocumentsRootPath -OverridePath $DocumentsRoot
 $centreBlock = New-CentreBlock -CentreScriptPath $CentreScript
 $targets = Get-TargetProfiles -ResolvedDocumentsRoot $resolvedDocumentsRoot
+$updatedCount = 0
+
+if ($Status) {
+    Get-StatusPayload -Targets $targets -ExpectedScriptPath $CentreScript | ConvertTo-Json -Depth 4
+    exit 0
+}
 
 foreach ($target in $targets) {
     $originalContent = ""
@@ -173,6 +245,11 @@ foreach ($target in $targets) {
     }
 
     $hadCentreBlock = Test-HasCentreBlock -Content $originalContent
+
+    if ($ExistingOnly -and -not $hadCentreBlock) {
+        continue
+    }
+
     $desiredContent = Get-DesiredProfileContent -ExistingContent $originalContent -CentreBlock $centreBlock
 
     if ($desiredContent -eq $originalContent) {
@@ -189,6 +266,10 @@ foreach ($target in $targets) {
     else {
         Success "Added 'centre' to $($target.Name) profile ($($target.Path))"
     }
+
+    $updatedCount++
 }
 
-Warn "Open a new Windows PowerShell or PowerShell 7 window to activate 'centre'. If you are already in the shell you want to use, run: . `$PROFILE"
+if ($updatedCount -gt 0) {
+    Warn "Open a new Windows PowerShell or PowerShell 7 window to activate 'centre'. If you are already in the shell you want to use, run: . `$PROFILE"
+}
