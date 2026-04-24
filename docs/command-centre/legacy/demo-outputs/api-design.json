@@ -1,8 +1,0 @@
-{
-  "endpoints": [
-    { "method": "GET", "path": "/api/tasks", "description": "List all tasks with optional status filter" },
-    { "method": "POST", "path": "/api/tasks", "description": "Create a new task" },
-    { "method": "PATCH", "path": "/api/tasks/:id", "description": "Update task fields" },
-    { "method": "DELETE", "path": "/api/tasks/:id", "description": "Delete task and children" }
-  ]
-}
