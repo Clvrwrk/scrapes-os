@@ -1,108 +1,190 @@
 {
   "version": "1.0.0",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "highlights": [],
+      "notes": ""
+    }
+  ],
   "core_skills": ["meta-skill-creator", "meta-wrap-up", "mkt-brand-voice", "mkt-positioning", "mkt-icp"],
   "skills": {
     "tool-humanizer": {
       "category": "utility",
+      "version": "1.0.0",
       "description": "De-AI text, match brand voice patterns",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": []
     },
     "tool-firecrawl-scraper": {
       "category": "utility",
+      "version": "1.0.0",
       "description": "Web scraping with JS rendering and anti-bot bypass",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": ["FIRECRAWL_API_KEY"],
       "dependencies": [],
       "mcp_servers": []
     },
     "tool-youtube": {
       "category": "utility",
+      "version": "1.0.0",
       "description": "YouTube channel listing and transcript extraction",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": ["YOUTUBE_API_KEY"],
       "dependencies": [],
       "mcp_servers": []
     },
     "str-trending-research": {
       "category": "strategy",
+      "version": "1.0.0",
       "description": "Research trending topics across Reddit, X, and web",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": ["OPENAI_API_KEY", "XAI_API_KEY"],
       "dependencies": [],
       "mcp_servers": []
     },
     "mkt-copywriting": {
       "category": "execution",
+      "version": "1.0.0",
       "description": "Direct response copywriting with scoring",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": ["tool-humanizer"],
       "mcp_servers": []
     },
     "mkt-content-repurposing": {
       "category": "execution",
+      "version": "1.0.0",
       "description": "Repurpose content across 8 platforms",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": ["tool-humanizer"],
       "mcp_servers": []
     },
     "mkt-ugc-scripts": {
       "category": "execution",
+      "version": "1.0.0",
       "description": "Short-form UGC video scripts for talking-head delivery",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": ["tool-humanizer"],
       "mcp_servers": []
     },
     "viz-excalidraw-diagram": {
       "category": "visual",
+      "version": "1.0.0",
       "description": "Architecture and workflow diagrams via Excalidraw",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": []
     },
     "viz-nano-banana": {
       "category": "visual",
+      "version": "1.0.0",
       "description": "AI image generation via Gemini",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": ["GEMINI_API_KEY"],
       "dependencies": [],
       "mcp_servers": []
     },
     "viz-ugc-heygen": {
       "category": "visual",
+      "version": "1.0.0",
       "description": "AI avatar videos via HeyGen API",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": ["HEYGEN_API_KEY"],
       "dependencies": [],
       "mcp_servers": ["heygen"]
     },
     "str-ai-seo": {
       "category": "strategy",
+      "version": "1.0.0",
       "description": "Optimize content for AI search engines and LLM citations",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": []
     },
     "viz-interface-design": {
       "category": "visual",
+      "version": "1.0.0",
       "description": "Design dashboards, admin panels, and SaaS UIs",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": []
     },
     "tool-stitch": {
       "category": "utility",
+      "version": "1.0.0",
       "description": "Fetch UI designs from Google Stitch projects",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": ["stitch"]
     },
     "viz-stitch-design": {
       "category": "visual",
+      "version": "1.0.0",
       "description": "Design and iterate on UI screens with Google Stitch",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": ["tool-stitch"],
       "mcp_servers": ["stitch"]
     },
     "ops-cron": {
       "category": "operations",
+      "version": "1.0.0",
       "description": "Schedule recurring Claude Code tasks with the managed cron runtime",
+      "story": { "text": "", "video": "" },
+      "changelog": [
+        { "version": "1.0.0", "summary": "Initial release" }
+      ],
       "requires_services": [],
       "dependencies": [],
       "mcp_servers": []

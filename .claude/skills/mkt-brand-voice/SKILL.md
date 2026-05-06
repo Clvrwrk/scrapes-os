@@ -85,7 +85,7 @@ Best for: brands that already have voice/tone guidelines, brand books, or style 
 
 Best for: raw content — website copy, emails, social posts, newsletters, transcripts.
 
-**Sample gate:** Minimum 3 samples OR 500+ total words. Under 500 words → offer Quick mode (top 5 traits + 3 rules) or ask for more content.
+**Sample gate:** Minimum 5 samples OR 800+ total words. Under the threshold → offer Quick mode (top 5 traits + 3 rules) or ask for more content.
 
 **Sample priority — most to least authentic:**
 1. Slack messages or casual emails (raw, unedited)
@@ -219,6 +219,8 @@ After saving, show the user actual excerpts — not just confirmation of file pa
 ## Rules
 
 *Updated automatically when the user flags issues. Read before every run.*
+
+- 2026-04-29: Match output language to the user's language. If the user writes in Portuguese, produce the voice profile, samples, and all questions in Portuguese. Never default to English when the user hasn't written in English.
 
 ---
 
