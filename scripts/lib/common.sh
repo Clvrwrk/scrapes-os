@@ -24,7 +24,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT"
 cd "$REPO_ROOT"
 
 # ---------- Upstream branch ----------
-UPSTREAM_BRANCH="main"
+UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
 
 # ---------- Key paths ----------
 BACKUP_DIR="$REPO_ROOT/.backup"

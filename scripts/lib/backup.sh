@@ -134,4 +134,3 @@ if [[ ${#OTHER_MODIFIED_FILES[@]} -gt 0 ]]; then
     done
 fi
 
-

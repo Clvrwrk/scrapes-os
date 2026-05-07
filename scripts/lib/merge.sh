@@ -355,22 +355,6 @@ fi
 # Restore stashed protected files
 # =========================================================
 if $STASHED; then
-    if git stash pop --quiet 2>/dev/null; then
-        : # silently restored
-    else
-        warn "Merge conflicts detected — backing up your versions..."
-        mkdir -p "$BACKUP_DIR"
-
-        CONFLICTED=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
-        if [[ -n "$CONFLICTED" ]]; then
-            while IFS= read -r file; do
-                backup_path="$BACKUP_DIR/$file"
-                mkdir -p "$(dirname "$backup_path")"
-                cp "$REPO_ROOT/$file" "$backup_path.conflicted" 2>/dev/null || true
-                git checkout --theirs -- "$file" 2>/dev/null || true
-                git add "$file" 2>/dev/null || true
-            done <<< "$CONFLICTED"
-        fi
-        git stash drop 2>/dev/null || true
-    fi
+    git stash apply --quiet 2>/dev/null || true
+    git stash drop 2>/dev/null || true
 fi

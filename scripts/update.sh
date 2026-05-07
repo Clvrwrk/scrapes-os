@@ -32,9 +32,6 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
     exit 1
 fi
 
-# Step 0: Self-update (sources and may exec-restart before continuing)
-source "$SCRIPT_DIR/lib/self-update.sh"
-
 echo ""
 printf "${CYAN}${BOLD}"
 cat << 'BANNER'
