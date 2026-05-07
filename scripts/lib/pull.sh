@@ -16,7 +16,7 @@ if $MERGE_FAILED; then
     if echo "$PULL_OUTPUT" | grep -qi "authentication\|403\|could not read\|repository not found\|invalid credentials"; then
         git merge --abort 2>/dev/null || true
         if $STASHED; then
-            git stash pop --quiet 2>/dev/null || true
+            restore_protected_stash
         fi
         for skill_name in "${MODIFIED_SKILLS[@]:-}"; do
             [[ -z "$skill_name" ]] && continue
@@ -49,7 +49,21 @@ if $MERGE_FAILED; then
         exit 1
     fi
 
-    exit 1
+    warn "Standard pull failed — resetting system files to origin/$UPSTREAM_BRANCH after backups."
+    git merge --abort 2>/dev/null || true
+    git reset --hard "origin/$UPSTREAM_BRANCH" >/dev/null 2>&1 || {
+        for skill_name in "${MODIFIED_SKILLS[@]:-}"; do
+            [[ -z "$skill_name" ]] && continue
+            cp -r "$SKILL_BACKUP_DIR/$skill_name"/* "$REPO_ROOT/.claude/skills/$skill_name/" 2>/dev/null || true
+        done
+        for file in "${OTHER_MODIFIED_FILES[@]:-}"; do
+            [[ -z "$file" ]] && continue
+            cp "$OTHER_BACKUP_DIR/$file" "$REPO_ROOT/$file" 2>/dev/null || true
+        done
+        warn "Reset failed — restored local backups. Please inspect git status and try again."
+        exit 1
+    }
+    PULL_OUTPUT="${PULL_OUTPUT}"$'\n'"Reset to origin/$UPSTREAM_BRANCH after pull conflict."
 fi
 
 # =========================================================
@@ -59,7 +73,7 @@ HAS_UPSTREAM_CHANGES=true
 if echo "$PULL_OUTPUT" | grep -q "Already up to date"; then
     HAS_UPSTREAM_CHANGES=false
     if $STASHED; then
-        git stash pop --quiet 2>/dev/null || true
+        restore_protected_stash
     fi
 fi
 
@@ -152,7 +166,7 @@ else
 
     if [[ $SKILL_COUNT -gt 0 ]]; then
         # Collect unique skill names from changed files
-        UPDATED_SKILL_NAMES=$(printf "$CHANGED_SKILL_FILES" | grep -oP '(?<=\.claude/skills/)[^/]+' | sort -u || true)
+        UPDATED_SKILL_NAMES=$(printf "%b" "$CHANGED_SKILL_FILES" | sed -n 's|^\.claude/skills/\([^/][^/]*\)/.*|\1|p' | sort -u || true)
         UPDATED_SKILL_COUNT=$(echo "$UPDATED_SKILL_NAMES" | grep -c . || true)
         printf "  ${BOLD}Skills${NC} ${DIM}(%d updated)${NC}\n" "$UPDATED_SKILL_COUNT"
         while IFS= read -r skill; do

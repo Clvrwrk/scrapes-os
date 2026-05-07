@@ -6,21 +6,63 @@
 # Step 4: Stash local changes to protected paths
 # =========================================================
 STASHED=false
+PROTECTED_STASH_REF=""
+PROTECTED_STASH_COMMIT=""
+PROTECTED_DIRTY_PATHS=()
 
-has_protected_changes() {
+collect_protected_changes() {
+    PROTECTED_DIRTY_PATHS=()
     for p in "${PROTECTED_PATHS[@]}"; do
         if git diff --name-only -- "$p" 2>/dev/null | grep -q .; then
-            return 0
+            PROTECTED_DIRTY_PATHS+=("$p")
+            continue
         fi
         if git diff --cached --name-only -- "$p" 2>/dev/null | grep -q .; then
-            return 0
+            PROTECTED_DIRTY_PATHS+=("$p")
+            continue
+        fi
+        if git ls-files --others --exclude-standard -- "$p" 2>/dev/null | grep -q .; then
+            PROTECTED_DIRTY_PATHS+=("$p")
+            continue
         fi
     done
-    return 1
+
+    [[ ${#PROTECTED_DIRTY_PATHS[@]} -gt 0 ]]
 }
 
-if has_protected_changes; then
-    git stash push --include-untracked -m "agentic-os-update-$(date +%s)" -- "${PROTECTED_PATHS[@]}" 2>/dev/null && STASHED=true
+restore_protected_stash() {
+    $STASHED || return 0
+
+    local stash_ref="${PROTECTED_STASH_REF:-stash@{0}}"
+    local current_ref
+    current_ref=$(git rev-parse -q --verify "$stash_ref" 2>/dev/null || true)
+
+    if [[ -n "${PROTECTED_STASH_COMMIT:-}" ]] && [[ "$current_ref" != "$PROTECTED_STASH_COMMIT" ]]; then
+        warn "Protected-file stash moved — keeping it for manual recovery."
+        return 0
+    fi
+
+    if git stash apply --quiet "$stash_ref" 2>/dev/null; then
+        git stash drop "$stash_ref" >/dev/null 2>&1 || true
+        STASHED=false
+    else
+        warn "Could not automatically restore protected local files — kept the stash for manual recovery."
+    fi
+}
+
+if collect_protected_changes; then
+    _stash_before=$(git rev-parse -q --verify refs/stash 2>/dev/null || true)
+    _stash_status=0
+    git stash push --include-untracked -m "agentic-os-update-$(date +%s)" -- "${PROTECTED_DIRTY_PATHS[@]}" >/dev/null 2>&1 || _stash_status=$?
+    _stash_after=$(git rev-parse -q --verify refs/stash 2>/dev/null || true)
+
+    if [[ -n "$_stash_after" ]] && [[ "$_stash_after" != "$_stash_before" ]]; then
+        STASHED=true
+        PROTECTED_STASH_REF="stash@{0}"
+        PROTECTED_STASH_COMMIT="$_stash_after"
+    elif [[ $_stash_status -ne 0 ]]; then
+        warn "Could not temporarily stash protected files. Update will continue carefully, but please inspect your local files after it finishes."
+    fi
 fi
 
 git fetch origin "$UPSTREAM_BRANCH" --quiet 2>/dev/null || true
@@ -133,4 +175,3 @@ if [[ ${#OTHER_MODIFIED_FILES[@]} -gt 0 ]]; then
         fi
     done
 fi
-

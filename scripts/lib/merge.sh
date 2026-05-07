@@ -355,6 +355,5 @@ fi
 # Restore stashed protected files
 # =========================================================
 if $STASHED; then
-    git stash apply --quiet 2>/dev/null || true
-    git stash drop 2>/dev/null || true
+    restore_protected_stash
 fi

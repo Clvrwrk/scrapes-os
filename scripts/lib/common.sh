@@ -17,10 +17,16 @@ warn()  { printf "  ${YELLOW}→ %b${NC}\n" "$1"; }
 bullet(){ printf "    ${DIM}•${NC} %b\n" "$1"; }
 
 # ---------- Repo root from this file's location ----------
-_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(dirname "$_COMMON_DIR")"     # scripts/
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"       # repo root
-case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT")" ;; esac
+if [[ -n "${AGENTIC_OS_UPDATE_BOOTSTRAP_REPO_ROOT:-}" ]]; then
+    REPO_ROOT="$AGENTIC_OS_UPDATE_BOOTSTRAP_REPO_ROOT"
+    case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT")" ;; esac
+    SCRIPT_DIR="$REPO_ROOT/scripts"
+else
+    _COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SCRIPT_DIR="$(dirname "$_COMMON_DIR")"     # scripts/
+    REPO_ROOT="$(dirname "$SCRIPT_DIR")"       # repo root
+    case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT")" ;; esac
+fi
 cd "$REPO_ROOT"
 
 # ---------- Upstream branch ----------
