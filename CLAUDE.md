@@ -6,6 +6,12 @@ This file keeps Claude Code compatible with the shared `AGENTS.md` guidance and 
 
 ---
 
+## Local Overrides
+
+If `CLAUDE.local.md` exists in this directory, **read it now** before anything else. Its `## Rules` entries and any other instructions extend and override this file for the entire session. This file is user-owned and never touched by updates.
+
+---
+
 ## Claude Runtime
 
 ### Session Type Detection
