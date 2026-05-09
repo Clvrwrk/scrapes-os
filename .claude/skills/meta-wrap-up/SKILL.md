@@ -1,5 +1,6 @@
 ---
 name: meta-wrap-up
+
 description: >
   End-of-session checklist that reviews deliverables, collects feedback,
   fixes skills, updates learnings, and commits work. Triggers
@@ -173,6 +174,7 @@ Log any sync actions in the session summary under a **Registry sync** line.
 ## Step 4: Commit & Push
 
 1. Stage all changes from the session (deliverables, brand context updates, skill fixes)
+   - Note: SKILL.md edits may already be committed individually by the PostToolUse hook — skip files with no unstaged changes rather than creating empty commits
 2. Commit with a descriptive message summarising the session's work
 3. Push to remote
 
@@ -225,6 +227,7 @@ After the session summary, tell the user to run `/usage` to check their plan usa
 *Updated automatically when the user flags issues. Read before every run.*
 
 - 2026-03-10: Daily memory file must contain real content, never placeholders. One file per day with `## Session N` blocks. Always fill in the goal and what happened — don't leave heartbeat scaffolding as-is.
+- 2026-05-01: Before committing, check `projects/briefs/` for any active projects and include them in the session summary under Deliverables if relevant work was done.
 
 ---
 

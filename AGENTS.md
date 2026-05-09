@@ -62,12 +62,29 @@ Compare what is on disk against what is registered in this file. Fix additions s
 7. If a skill is removed and it was the last consumer of a service:
    - Ask the user whether to remove that service from `AGENTS.md`, `.env.example`, and README.md
 
+### Skill Local Overrides
+
+Every skill can have a `SKILL.local.md` alongside its `SKILL.md`:
+
+- `SKILL.md` — base definition, shipped by upstream, never modified by the user
+- `SKILL.local.md` — user-owned additions: extra `## Rules` entries, section overrides, context notes
+
+**When invoking any skill:** check if `.claude/skills/{skill-name}/SKILL.local.md` exists. If it does, read it alongside `SKILL.md`. Local rules take precedence over the base. This file is never overwritten by updates.
+
+**Format:** same structure as `SKILL.md`. At minimum, a `## Rules` section with dated entries:
+```
+## Rules
+- 2026-05-03: always do X when Y
+```
+
+---
+
 ### Task Routing
 
 When the user asks a question or requests a task:
 1. Check system operations first. If the request matches a built-in operation, execute it directly.
 2. Search installed skills by checking `.claude/skills/` frontmatter for a matching skill.
-3. If a skill exists, invoke it. Always prefer the dedicated skill over base knowledge.
+3. If a skill exists, invoke it. Check for `SKILL.local.md` and load it alongside `SKILL.md`.
 4. If no skill matches, say so explicitly and offer either:
    - Find or build a skill so the system handles the task well every time
    - Handle it now with base knowledge
@@ -83,6 +100,7 @@ These are core system functions handled by scripts. Check them before searching 
 | "add a client", "new client", "set up a client" | See **Add Client Flow** below |
 | "remove a skill", "uninstall {skill}" | Run `bash scripts/remove-skill.sh {skill-name}` |
 | "add a skill", "install {skill}" | Run `bash scripts/add-skill.sh {skill-name}` |
+| "synthesize skills", "sync local overrides", "clean up local files" | Run `meta-synthesize-locals` skill |
 | "list skills", "what skills are installed" | Run `bash scripts/list-skills.sh` |
 | "start crons", "start scheduled jobs" | Run `bash scripts/start-crons.sh` |
 | "stop crons", "stop scheduled jobs" | Run `bash scripts/stop-crons.sh` |
