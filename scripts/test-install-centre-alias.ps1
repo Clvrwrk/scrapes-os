@@ -90,6 +90,22 @@ function Invoke-InstallerForTest {
     & $Installer -DocumentsRoot $DocumentsRoot | Out-Null
 }
 
+function Invoke-ExistingOnlyForTest {
+    param(
+        [string]$DocumentsRoot
+    )
+
+    & $Installer -DocumentsRoot $DocumentsRoot -ExistingOnly | Out-Null
+}
+
+function Get-StatusForTest {
+    param(
+        [string]$DocumentsRoot
+    )
+
+    return (& $Installer -DocumentsRoot $DocumentsRoot -Status | Out-String | ConvertFrom-Json)
+}
+
 function Write-ProfileContent {
     param(
         [string]$Path,
@@ -197,6 +213,34 @@ function centre {
     $secondRunContent = Get-Content -LiteralPath $idempotentTargets.WindowsPowerShell -Raw
     Assert-Equal -Expected $firstRunContent -Actual $secondRunContent -Message "Running the installer twice should not rewrite the Windows PowerShell profile."
     Assert-ManagedBlockCount -Content $secondRunContent -ExpectedCount 1 -Message "Idempotent install should keep a single managed block."
+
+    # Existing-only mode should not create fresh profiles
+    $existingOnlyDocsRoot = New-TestDocumentsRoot -BaseRoot $testRoot -Scenario "existing-only"
+    $existingOnlyTargets = Get-TargetPaths -DocumentsRoot $existingOnlyDocsRoot
+    Invoke-ExistingOnlyForTest -DocumentsRoot $existingOnlyDocsRoot
+    Assert-True -Condition (-not (Test-Path -LiteralPath $existingOnlyTargets.WindowsPowerShell)) -Message "Existing-only mode should not create a Windows PowerShell profile."
+    Assert-True -Condition (-not (Test-Path -LiteralPath $existingOnlyTargets.PowerShell7)) -Message "Existing-only mode should not create a PowerShell 7 profile."
+
+    # Status mode should report mismatches and legacy layout hints
+    $statusDocsRoot = New-TestDocumentsRoot -BaseRoot $testRoot -Scenario "status"
+    $statusTargets = Get-TargetPaths -DocumentsRoot $statusDocsRoot
+    $statusOldScript = "C:\legacy\projects\agentic-os\scripts\centre.ps1"
+    $statusBlock = (
+        @(
+            $BlockStart,
+            "function centre {",
+            "    & `"$statusOldScript`" @Args",
+            "}",
+            $BlockEnd
+        ) -join "`r`n"
+    )
+    Write-ProfileContent -Path $statusTargets.PowerShell7 -Content $statusBlock
+    $status = Get-StatusForTest -DocumentsRoot $statusDocsRoot
+    Assert-True -Condition $status.shortcuts_detected -Message "Status mode should detect an installed shortcut."
+    Assert-True -Condition $status.mismatch_detected -Message "Status mode should flag a shortcut that points to another repo."
+    Assert-Equal -Expected $statusOldScript -Actual $status.current_shortcut_path -Message "Status mode should report the current stale script path."
+    Assert-Equal -Expected $CentreScript -Actual $status.expected_shortcut_path -Message "Status mode should report the current repo path as the expected shortcut."
+    Assert-True -Condition $status.is_legacy_projects_layout -Message "Status mode should flag old shortcuts stored under projects folders."
 
     # Manual smoke check, simulated by dot-sourcing the generated profiles in each host.
     $smokeDocsRoot = New-TestDocumentsRoot -BaseRoot $testRoot -Scenario "smoke"

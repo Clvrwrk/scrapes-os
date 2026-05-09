@@ -11,6 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/python.sh"
+source "$SCRIPT_DIR/lib/centre-shortcut.sh"
 
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT")" ;;
@@ -349,69 +350,48 @@ install_launcher_alias() {
     fi
 
     local centre_script="$SCRIPT_DIR/centre.sh"
-    local alias_line="alias centre='bash \"$centre_script\"'"
-    local alias_marker="# Agentic OS - command centre launcher"
-    local user_shell_name
-    local reload_hint=""
-    user_shell_name="$(basename "${SHELL:-}")"
-
-    install_alias_into() {
-        local rc="$1"
-        [[ -z "$rc" ]] && return 0
-        touch "$rc"
-        if grep -Fq "$alias_marker" "$rc" 2>/dev/null; then
-            success "Shortcut already present in $(basename "$rc")"
-            return 0
-        fi
-        {
-            echo ""
-            echo "$alias_marker"
-            echo "$alias_line"
-        } >> "$rc"
-        success "Added 'centre' to $(basename "$rc")"
-    }
+    local manual_alias_line=""
+    manual_alias_line="$(agentic_os_centre_build_alias_line "posix" "$centre_script")"
 
     case "$(uname -s)" in
         Darwin|Linux)
-            case "$user_shell_name" in
-                zsh)
-                    install_alias_into "$HOME/.zshrc"
-                    reload_hint="source ~/.zshrc"
+            if ! agentic_os_centre_install_current_unix_shortcut "$centre_script"; then
+                warn "Unknown shell. Install the shortcut manually:"
+                echo "    $manual_alias_line"
+                LAUNCHER_DECISION="manual-required"
+                return 0
+            fi
+
+            case "$AGENTIC_OS_CENTRE_LAST_ACTION" in
+                added)
+                    success "Added 'centre' to $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
                     ;;
-                bash)
-                    if [[ "$(uname -s)" == "Darwin" ]]; then
-                        install_alias_into "$HOME/.bash_profile"
-                        reload_hint="source ~/.bash_profile"
-                    else
-                        install_alias_into "$HOME/.bashrc"
-                        reload_hint="source ~/.bashrc"
-                    fi
-                    ;;
-                fish)
-                    mkdir -p "$HOME/.config/fish"
-                    local fish_rc="$HOME/.config/fish/config.fish"
-                    local fish_line="alias centre 'bash \"$centre_script\"'"
-                    touch "$fish_rc"
-                    if grep -Fq "$alias_marker" "$fish_rc"; then
-                        success "Shortcut already present in config.fish"
-                    else
-                        { echo ""; echo "$alias_marker"; echo "$fish_line"; } >> "$fish_rc"
-                        success "Added 'centre' to config.fish"
-                    fi
-                    reload_hint="source ~/.config/fish/config.fish"
+                updated)
+                    success "Updated 'centre' in $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
                     ;;
                 *)
-                    warn "Unknown shell. Install the shortcut manually:"
-                    echo "    $alias_line"
-                    LAUNCHER_DECISION="manual-required"
-                    return 0
+                    success "Shortcut already current in $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
                     ;;
             esac
-            [[ -n "$reload_hint" ]] && warn "Open a new terminal or run '$reload_hint' to activate 'centre'."
+
+            [[ -n "$AGENTIC_OS_CENTRE_CURRENT_RELOAD_HINT" ]] && \
+                warn "Open a new terminal or run '$AGENTIC_OS_CENTRE_CURRENT_RELOAD_HINT' to activate 'centre'."
             LAUNCHER_DECISION="installed"
             ;;
         MINGW*|MSYS*|CYGWIN*)
-            install_alias_into "$HOME/.bashrc"
+            if agentic_os_centre_install_current_unix_shortcut "$centre_script"; then
+                case "$AGENTIC_OS_CENTRE_LAST_ACTION" in
+                    added)
+                        success "Added 'centre' to $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
+                        ;;
+                    updated)
+                        success "Updated 'centre' in $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
+                        ;;
+                    *)
+                        success "Shortcut already current in $(basename "$AGENTIC_OS_CENTRE_CURRENT_TARGET_PATH")"
+                        ;;
+                esac
+            fi
             if command -v powershell.exe &>/dev/null; then
                 if powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$SCRIPT_DIR/install-centre-alias.ps1")"; then
                     success "Installed PowerShell shortcut"
@@ -427,7 +407,7 @@ install_launcher_alias() {
             ;;
         *)
             warn "Unknown environment. Install the shortcut manually:"
-            echo "    $alias_line"
+            echo "    $manual_alias_line"
             LAUNCHER_DECISION="manual-required"
             ;;
     esac
