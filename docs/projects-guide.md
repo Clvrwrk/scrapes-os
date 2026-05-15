@@ -67,60 +67,68 @@ created: 2026-03-24
 
 For complex multi-phase work with dependencies and milestones.
 
-GSD uses a `.planning/` folder to store its roadmap, phase plans, and verification reports. This folder lives at the root of whatever workspace you're in — so if you're working in `clients/client-one/`, it's `clients/client-one/.planning/`. If you're working from the root, it's `agentic-os/.planning/`.
+GSD uses a `.planning/` folder at the workspace root to store its roadmap, phase plans, and verification reports. This folder always lives at the root of your session — `agentic-os/.planning/` for solo work, or `clients/client-name/.planning/` for a client workspace.
 
-Your project's outputs and brief still live in `projects/briefs/{project-name}/`. The `.planning/` folder is GSD's working space — it links back to your project.
+Your project's outputs and brief live in `projects/briefs/{project-name}/` as usual. GSD's `.planning/` is its own working space separate from your outputs.
 
 ```
-projects/briefs/website-rebuild/     <- project folder (your stuff)
-├── brief.md                         <- project brief (links to .planning/)
-├── 2026-03-24_homepage-copy.md      <- outputs still go in the project folder
+projects/briefs/website-rebuild/     <- project folder (your outputs)
+├── brief.md
+├── 2026-03-24_homepage-copy.md
 └── 2026-03-25_sitemap.excalidraw
 
 .planning/                           <- GSD working space (at workspace root)
 ├── PROJECT.md
-├── ROADMAP.md
-├── STATE.md
 ├── config.json
 ├── research/
-├── intel/
-└── phases/
-    ├── 01-foundation/
-    │   ├── PLAN.md
-    │   └── VERIFICATION.md
-    └── 02-build/
+└── workstreams/
+    └── website-rebuild/             <- this project's planning state
+        ├── ROADMAP.md
+        ├── STATE.md
+        └── phases/
+            ├── 01-foundation/
+            │   ├── PLAN.md
+            │   └── VERIFICATION.md
+            └── 02-build/
 ```
 
-### One GSD project at a time
+### Multiple GSD projects in parallel — workstreams
 
-Each workspace (root or client folder) can run one GSD project at a time, because `.planning/` is shared. This means:
+Each GSD project lives as a **workstream** inside `.planning/workstreams/{slug}/`. This means multiple projects can run in parallel in the same workspace — each with its own roadmap, state, and phases — without colliding.
 
-- **Solo user:** one GSD project at a time in your root folder
-- **Multi-client:** each client can have its own GSD project running simultaneously (they each have their own `.planning/`)
-- **Need two GSD projects for the same client?** Finish one first, or use separate client workspaces
+When you start your first project, GSD creates a flat `.planning/` structure. When you start a second project, GSD automatically migrates the first into `.planning/workstreams/{name}/` and creates the new one alongside it.
 
-If you try to start a new GSD project while one is already active, Claude will offer to archive the existing one first.
+```
+.planning/
+├── PROJECT.md
+├── config.json
+└── workstreams/
+    ├── website-rebuild/       <- Project A (active)
+    │   ├── ROADMAP.md
+    │   ├── STATE.md
+    │   └── phases/
+    └── email-campaign/        <- Project B (active in parallel)
+        ├── ROADMAP.md
+        ├── STATE.md
+        └── phases/
+```
 
 ### Archiving a completed GSD project
 
 When you're done with a GSD project, run `/archive-gsd`. This:
 
-1. Moves `.planning/` into your project folder as `planning-archive/`
+1. Completes the workstream — GSD archives it to `.planning/milestones/`
 2. Updates the brief's status to `complete`
-3. Shows you where everything was moved
-4. Frees up the workspace for a new GSD project
-
-The archive preserves the full roadmap, phase plans, and verification reports alongside your project's outputs and brief — so you can always go back and see how the project was planned and executed.
 
 ```
-projects/briefs/website-rebuild/     <- after archiving
-├── brief.md                         <- status: complete
-├── 2026-03-24_homepage-copy.md
-├── 2026-03-25_sitemap.excalidraw
-└── planning-archive/                <- moved from .planning/
-    ├── PROJECT.md
-    ├── ROADMAP.md
-    └── phases/
+.planning/
+├── milestones/
+│   └── ws-website-rebuild-2026-05-15/   <- archived workstream
+│       ├── ROADMAP.md
+│       ├── STATE.md
+│       └── phases/
+└── workstreams/
+    └── email-campaign/                  <- remaining active project
 ```
 
 ---
@@ -147,10 +155,14 @@ projects/
         ├── 2026-03-24_homepage-copy.md
         └── 2026-03-25_sitemap.excalidraw
 
-.planning/                          <- GSD only (Level 3), at project root — one at a time
+.planning/                          <- GSD only (Level 3), at workspace root
 ├── PROJECT.md
-├── ROADMAP.md
-└── phases/
+├── config.json
+└── workstreams/
+    └── website-rebuild/            <- one workstream per Level 3 project
+        ├── ROADMAP.md
+        ├── STATE.md
+        └── phases/
 ```
 
 **How to tell them apart:**

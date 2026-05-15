@@ -1,58 +1,68 @@
 # /archive-gsd
 
-Mark a GSD project as complete. Each Level 3 project owns its own `.planning/`
-folder inside `projects/briefs/{slug}/`, so archiving is now a simple
-frontmatter flip — nothing moves on disk.
+Mark a GSD project as complete. Each Level 3 project runs as a workstream inside
+`.planning/workstreams/{slug}/`. Archiving completes the workstream and flips the
+brief's status — the workstream data is moved to `.planning/milestones/` by GSD.
 
 ## What This Does
 
-1. Finds an active GSD project by scanning `projects/briefs/*/brief.md` for
-   a brief with `level: 3` and `status: active`.
-2. Updates that brief's frontmatter from `status: active` to `status: complete`.
-3. Leaves `projects/briefs/{slug}/.planning/` exactly where it is, as a
-   self-contained historical record.
-
-Multiple GSD projects can be active in parallel, so this command only
-affects the one you choose.
+1. Lists active workstreams via `gsd-tools workstream list`.
+2. Asks the user which project to archive (if more than one active).
+3. Runs `gsd-tools workstream complete {slug}` — GSD moves the workstream to
+   `.planning/milestones/ws-{slug}-{date}/`.
+4. Updates the corresponding brief's frontmatter from `status: active` to
+   `status: complete`.
 
 ## Steps
 
-### Step 1: Find active GSD projects
+### Step 1: List active workstreams
 
-Scan `projects/briefs/*/brief.md` for files with `level: 3` and
-`status: active` in YAML frontmatter.
+Run:
+```
+node ~/.claude/get-shit-done/bin/gsd-tools.cjs workstream list --raw
+```
 
-- **Found none** → tell the user: "No active GSD project found — nothing to archive."
-- **Found one** → continue to Step 2 with that project.
-- **Found multiple** → ask the user which one to archive.
+- **No workstreams / flat mode** → tell the user: "No active GSD project found — nothing to archive."
+- **One workstream** → continue to Step 2 with that workstream.
+- **Multiple workstreams** → ask the user which one to archive.
 
-### Step 2: Confirm with the user
+### Step 2: Find the matching brief
 
-> "I'll mark the GSD project **{project-name}** as complete:"
-> - Update `projects/briefs/{project-name}/brief.md` → `status: complete`
-> - `projects/briefs/{project-name}/.planning/` stays in place
+Look for `projects/briefs/*/brief.md` where the folder slug matches the workstream
+name and the brief has `level: 3` and `status: active`.
+
+### Step 3: Confirm with the user
+
+> "I'll archive the GSD project **{workstream-name}**:"
+> - Run `workstream complete {workstream-name}` → moves planning state to `.planning/milestones/`
+> - Update `projects/briefs/{slug}/brief.md` → `status: complete`
 >
 > "Go ahead?"
 
 Wait for confirmation before proceeding.
 
-### Step 3: Flip the status
+### Step 4: Complete the workstream
 
-Edit the brief's YAML frontmatter: change `status: active` to
-`status: complete`. Do not touch `.planning/` or anything else.
+Run:
+```
+node ~/.claude/get-shit-done/bin/gsd-tools.cjs workstream complete {slug} --raw
+```
 
-### Step 4: Report
+### Step 5: Flip the brief status
 
-> "Done. **{project-name}** is archived."
+Edit the brief's YAML frontmatter: change `status: active` to `status: complete`.
+
+### Step 6: Report
+
+> "Done. **{workstream-name}** is archived."
 >
-> - Brief: `projects/briefs/{project-name}/brief.md` (status: complete)
-> - Planning: `projects/briefs/{project-name}/.planning/` (unchanged)
+> - Planning state: `.planning/milestones/ws-{slug}-{date}/` (moved by GSD)
+> - Brief: `projects/briefs/{slug}/brief.md` (status: complete)
 >
 > "Other GSD projects are unaffected. Start a new one any time with `/gsd:new-project`."
 
 ## Anti-Patterns
 
-- Never move `.planning/` — it already lives in the right place.
-- Never delete anything — only the frontmatter field changes.
+- Never delete workstream files manually — always use `workstream complete`.
 - Never archive without user confirmation.
-- Never assume there's only one active GSD project — always check.
+- Never assume there's only one active workstream — always check.
