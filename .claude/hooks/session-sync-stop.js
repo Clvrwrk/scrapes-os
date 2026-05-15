@@ -33,7 +33,7 @@ process.stdin.on("end", () => {
     return;
   }
 
-  const { taskId, port, syncMode = "managed" } = mapping;
+  const { taskId, port, syncMode = "managed", claudePid = null } = mapping;
   if (!taskId) return;
 
   const safePort = JSON.stringify(String(port || "3000"));
@@ -100,6 +100,18 @@ process.stdin.on("end", () => {
         if (responseText) {
           await makeRequest("POST", "/api/tasks/${taskId}/logs",
             { type: "text", content: responseText });
+        }
+      }
+
+      // Wait 3s then clean up the tmp session file if Claude has exited.
+      // Status is NOT patched to done — the UI or backend reaper handles that.
+      const storedPid = ${claudePid === null ? "null" : claudePid};
+      if (storedPid !== null) {
+        await new Promise((r) => setTimeout(r, 3000));
+        let alive = false;
+        try { process.kill(storedPid, 0); alive = true; } catch {}
+        if (!alive) {
+          try { fs.unlinkSync(${JSON.stringify(tmpFile)}); } catch {}
         }
       }
     }
