@@ -274,6 +274,7 @@ export async function POST(request: Request) {
           permissionMode: inheritedPermissionMode,
           executionPermissionMode: inheritedExecutionMode,
           model: parentTask.model ?? null,
+          thinkingEffort: parentTask.thinkingEffort ?? null,
           lastReplyAt: null,
           goalGroup: null,
           tag: null,
@@ -281,15 +282,15 @@ export async function POST(request: Request) {
         };
 
         db.prepare(
-          `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model, thinkingEffort)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           task.id, task.title, task.description, task.status, task.level,
           task.parentId, task.projectSlug, task.columnOrder,
           task.createdAt, task.updatedAt, task.costUsd, task.tokensUsed,
           task.durationMs, task.activityLabel, task.errorMessage,
           task.startedAt, task.completedAt, task.clientId, 0,
-          task.phaseNumber, task.gsdStep, task.permissionMode, task.executionPermissionMode, task.model
+          task.phaseNumber, task.gsdStep, task.permissionMode, task.executionPermissionMode, task.model, task.thinkingEffort
         );
 
         emitTaskEvent({ type: "task:created", task, timestamp: now });

@@ -8,7 +8,7 @@ import { BubbledQuestion } from "./bubbled-question";
 import { ChatMessageAttachmentList } from "@/components/shared/chat-attachment-strip";
 import { Bot } from "lucide-react";
 import type { Message } from "@/types/chat";
-import type { ClaudeModel, PermissionMode } from "@/types/task";
+import type { ClaudeModel, ClaudeThinkingEffort, PermissionMode } from "@/types/task";
 import type { ChatAttachment } from "@/types/chat-composer";
 
 function formatTime(dateStr: string): string {
@@ -126,7 +126,7 @@ export function ChatPanel() {
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
-  const handleSend = useCallback((content: string, options: { permissionMode: PermissionMode; model: ClaudeModel | null; attachments: ChatAttachment[] }) => {
+  const handleSend = useCallback((content: string, options: { permissionMode: PermissionMode; model: ClaudeModel | null; thinkingEffort: ClaudeThinkingEffort | null; attachments: ChatAttachment[] }) => {
     sendMessage(content, options);
   }, [sendMessage]);
 

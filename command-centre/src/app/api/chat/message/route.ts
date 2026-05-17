@@ -4,11 +4,14 @@ import { emitTaskEvent } from "@/lib/event-bus";
 import { cleanupChatAttachmentStorage, copyChatAttachmentsToSent, deleteSourceDraftAttachments } from "@/lib/chat-attachment-service";
 import { composeMessageWithAttachments, getMessageTitleSource } from "@/lib/chat-message-content";
 import { getActivePermissionMode, getExecutionPermissionMode } from "@/lib/permission-mode";
+import {
+  isNullableClaudeThinkingEffort,
+  normalizeClaudeThinkingEffortForModel,
+  VALID_CLAUDE_MODELS,
+} from "@/lib/claude-options";
 import type { Message } from "@/types/chat";
 import type { ChatAttachment } from "@/types/chat-composer";
-import type { ClaudeModel, PermissionMode, Task } from "@/types/task";
-
-const VALID_MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
+import type { ClaudeModel, ClaudeThinkingEffort, PermissionMode, Task } from "@/types/task";
 
 function normalizeAttachments(value: unknown): ChatAttachment[] {
   if (!Array.isArray(value)) return [];
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
       replyToMessageId,
       permissionMode: requestedPermissionMode,
       model: requestedModel,
+      thinkingEffort: requestedThinkingEffort,
     } = body as {
       conversationId?: string;
       content?: string;
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
       replyToMessageId?: string;
       permissionMode?: PermissionMode;
       model?: ClaudeModel | null;
+      thinkingEffort?: ClaudeThinkingEffort | null;
     };
 
     const rawContent = typeof content === "string" ? content.trim() : "";
@@ -49,6 +54,19 @@ export async function POST(request: NextRequest) {
     if (!conversationId || (!rawContent && incomingAttachments.length === 0)) {
       return NextResponse.json(
         { error: "conversationId and either content or attachments are required" },
+        { status: 400 },
+      );
+    }
+
+    if ("thinkingEffort" in body && !isNullableClaudeThinkingEffort(requestedThinkingEffort)) {
+      return NextResponse.json(
+        { error: 'thinkingEffort must be "auto", "low", "medium", "high", "xhigh", "max", or null' },
+        { status: 400 },
+      );
+    }
+    if ("model" in body && requestedModel !== null && requestedModel !== undefined && !VALID_CLAUDE_MODELS.includes(requestedModel)) {
+      return NextResponse.json(
+        { error: 'model must be "opus", "sonnet", "haiku", or null' },
         { status: 400 },
       );
     }
@@ -127,6 +145,7 @@ export async function POST(request: NextRequest) {
               attachments,
               permissionMode: requestedPermissionMode,
               model: requestedModel ?? undefined,
+              thinkingEffort: requestedThinkingEffort ?? undefined,
             }),
           });
         } catch (err) {
@@ -156,6 +175,7 @@ export async function POST(request: NextRequest) {
               attachments,
               permissionMode: requestedPermissionMode,
               model: requestedModel ?? undefined,
+              thinkingEffort: requestedThinkingEffort ?? undefined,
             }),
           });
 
@@ -203,9 +223,10 @@ export async function POST(request: NextRequest) {
       const model =
         requestedModel === null
           ? null
-          : requestedModel && VALID_MODELS.includes(requestedModel)
+          : requestedModel && VALID_CLAUDE_MODELS.includes(requestedModel)
             ? requestedModel
             : null;
+      const thinkingEffort = normalizeClaudeThinkingEffortForModel(model, requestedThinkingEffort ?? null);
       const task: Task = {
         id: taskId,
         title: titleSource.length > 100
@@ -236,6 +257,7 @@ export async function POST(request: NextRequest) {
         permissionMode,
         executionPermissionMode,
         model,
+        thinkingEffort,
         lastReplyAt: null,
         goalGroup: null,
         tag: null,
@@ -245,8 +267,8 @@ export async function POST(request: NextRequest) {
       };
 
       db.prepare(
-        `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, permissionMode, executionPermissionMode, model, conversationId, originMessageId)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, permissionMode, executionPermissionMode, model, thinkingEffort, conversationId, originMessageId)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         task.id,
         task.title,
@@ -263,6 +285,7 @@ export async function POST(request: NextRequest) {
         task.permissionMode,
         task.executionPermissionMode,
         task.model,
+        task.thinkingEffort,
         task.conversationId,
         task.originMessageId,
       );

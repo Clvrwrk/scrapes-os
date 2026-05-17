@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Grid2x2, Columns2, Rows2, Terminal, Check } from "lucide-react";
-import type { Task, LogEntry, OutputFile } from "@/types/task";
+import type { Task, LogEntry, OutputFile, ClaudeThinkingEffort } from "@/types/task";
 import type { ChatAttachment } from "@/types/chat-composer";
 import { MAIN_PANE_ID, type PaneItem, type PaneLayout } from "@/hooks/use-pane-state";
 import { composeMessageWithAttachments } from "@/lib/chat-message-content";
@@ -165,12 +165,13 @@ export function PaneContainer({
           initialPermissionMode={parentTask?.permissionMode ?? "bypassPermissions"}
           initialExecutionPermissionMode={parentTask?.executionPermissionMode ?? null}
           initialModel={parentTask?.model ?? null}
+          initialThinkingEffort={parentTask?.thinkingEffort ?? null}
           subtasks={subtasks}
           onSelectSubtask={onSelectSubtask}
           onRunSubtask={onRunSubtask}
           onRunAll={onRunAll}
           compact={multiPane}
-          onCreatePaneTask={async (msg: string, permMode: string, model, attachments: ChatAttachment[]) => {
+          onCreatePaneTask={async (msg: string, permMode: string, model, thinkingEffort: ClaudeThinkingEffort | null, attachments: ChatAttachment[]) => {
             if (!parentTask) return null;
             const fullMessage = composeMessageWithAttachments(msg, attachments);
             const titleSource = msg.trim() || (attachments.length === 1 ? attachments[0].fileName : `Attached ${attachments.length} files`);
@@ -186,6 +187,7 @@ export function PaneContainer({
               "queued",
               parentTask.clientId,
               model,
+              thinkingEffort,
             );
             if (newId) {
               onAssignTaskToPane?.(paneItem.id, newId);

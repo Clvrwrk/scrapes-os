@@ -1070,6 +1070,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
         executionPermissionMode:
           parentTask.executionPermissionMode ?? parentTask.permissionMode ?? "bypassPermissions",
         model: parentTask.model ?? null,
+        thinkingEffort: parentTask.thinkingEffort ?? null,
         lastReplyAt: null,
         goalGroup: null,
         tag: null,
@@ -1077,15 +1078,15 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       };
 
       db.prepare(
-        `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model, thinkingEffort)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         child.id, child.title, child.description, child.status, child.level,
         child.parentId, child.projectSlug, child.columnOrder, child.createdAt,
         child.updatedAt, child.costUsd, child.tokensUsed, child.durationMs,
         child.activityLabel, child.errorMessage, child.startedAt, child.completedAt,
         child.clientId, 0, child.phaseNumber, child.gsdStep,
-        child.permissionMode, child.executionPermissionMode, child.model
+        child.permissionMode, child.executionPermissionMode, child.model, child.thinkingEffort
       );
 
       emitTaskEvent({ type: "task:created", task: child, timestamp: now });
@@ -1170,9 +1171,9 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     delete cleanEnv.CLAUDECODE;
     const config = getConfig();
 
-    // Read the task's permission mode + model from the DB
+    // Read the task's permission mode, model, and thinking effort from the DB
     const db = getDb();
-    const taskRow = db.prepare("SELECT permissionMode, model, cronJobSlug, projectSlug FROM tasks WHERE id = ?").get(taskId) as { permissionMode: string | null; model: string | null; cronJobSlug: string | null; projectSlug: string | null } | undefined;
+    const taskRow = db.prepare("SELECT permissionMode, model, thinkingEffort, cronJobSlug, projectSlug FROM tasks WHERE id = ?").get(taskId) as { permissionMode: string | null; model: string | null; thinkingEffort: string | null; cronJobSlug: string | null; projectSlug: string | null } | undefined;
 
     // Tell GSD which project this task belongs to (priority 2 in resolvePlanningDir)
     if (taskRow?.projectSlug) {
@@ -1183,6 +1184,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       ? "bypassPermissions"
       : (taskRow?.permissionMode || "bypassPermissions");
     const model = taskRow?.model || null;
+    const thinkingEffort = taskRow?.thinkingEffort || null;
 
     // Build args
     const args = [
@@ -1194,6 +1196,9 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
 
     if (model) {
       args.push("--model", model);
+    }
+    if (thinkingEffort && thinkingEffort !== "auto") {
+      args.push("--effort", thinkingEffort);
     }
 
     // bypassPermissions needs the dangerously-skip flag

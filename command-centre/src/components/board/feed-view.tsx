@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, CheckCircle2, Paperclip, Download, Eye, ExternalLink, FileText, Play, ArrowLeft, Maximize2, Minimize2, Plus, Pencil, Terminal, Copy, PanelRight, PanelRightClose, Pin } from "lucide-react";
 import { useTaskStore } from "@/store/task-store";
-import type { Task, LogEntry, TaskLevel, PermissionMode, ClaudeModel, Todo } from "@/types/task";
+import type { Task, LogEntry, TaskLevel, PermissionMode, ClaudeModel, ClaudeThinkingEffort, Todo } from "@/types/task";
 import { getPendingTaskQuestionPreview } from "@/lib/task-logs";
 import { PermissionPicker } from "@/components/shared/permission-picker";
 import { ModelPicker } from "@/components/shared/model-picker";
+import { ThinkingEffortPicker } from "@/components/shared/thinking-effort-picker";
 import { TasksPopover } from "@/components/shared/tasks-popover";
 import { PastedTextCard } from "@/components/shared/pasted-text-card";
 import {
@@ -45,6 +46,7 @@ import {
   normalizePermissionMode,
 } from "@/lib/permission-mode";
 import { loadGoalDrafts, removeGoalDraft, saveGoalDraft } from "@/lib/goal-drafts";
+import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
 import {
   clearActiveGoalDraftPanel,
   createGoalDraftPanelState,
@@ -1996,6 +1998,7 @@ function DetailPanel({
     getExecutionPermissionMode(task.executionPermissionMode ?? task.permissionMode, "bypassPermissions"),
   );
   const [model, setModel] = useState<ClaudeModel | null>(task.model ?? null);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(task.thinkingEffort ?? "auto");
   const [changedOnly, setChangedOnly] = useState(false);
   const [scrollToTaskId, setScrollToTaskId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2080,7 +2083,8 @@ function DetailPanel({
       getExecutionPermissionMode(task.executionPermissionMode ?? task.permissionMode, "bypassPermissions"),
     );
     setModel(task.model ?? null);
-  }, [task.id, task.permissionMode, task.executionPermissionMode, task.model]);
+    setThinkingEffort(task.thinkingEffort ?? "auto");
+  }, [task.id, task.permissionMode, task.executionPermissionMode, task.model, task.thinkingEffort]);
 
   // Derive latest TodoWrite snapshot from streamed log entries.
   const latestTodos: Todo[] = useMemo(() => {
@@ -2331,8 +2335,15 @@ function DetailPanel({
   }, [activePermissionMode, executionPermissionMode, task.id, updateTask]);
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort);
     setModel(nextModel);
-    void updateTask(task.id, { model: nextModel });
+    setThinkingEffort(nextThinkingEffort);
+    void updateTask(task.id, { model: nextModel, thinkingEffort: nextThinkingEffort });
+  }, [task.id, thinkingEffort, updateTask]);
+
+  const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
+    setThinkingEffort(nextThinkingEffort);
+    void updateTask(task.id, { thinkingEffort: nextThinkingEffort });
   }, [task.id, updateTask]);
 
   const handleReply = async () => {
@@ -2380,6 +2391,7 @@ function DetailPanel({
           permissionMode: activePermissionMode === "plan" ? "plan" : permissionMode,
           executionPermissionMode,
           model,
+          thinkingEffort,
         }),
       });
     } catch { /* silently fail */ }
@@ -2541,6 +2553,26 @@ function DetailPanel({
               }}
             >
               {task.model}
+            </span>
+          )}
+          {task.thinkingEffort && task.thinkingEffort !== "auto" && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "3px 7px",
+                fontSize: 10,
+                fontFamily: "'DM Mono', monospace",
+                fontWeight: 500,
+                color: "#6D5B8B",
+                background: "rgba(109, 91, 139, 0.1)",
+                borderRadius: 4,
+                cursor: "default",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {task.thinkingEffort}
             </span>
           )}
           {onToggleFullscreen && (
@@ -3044,6 +3076,7 @@ function DetailPanel({
                 </button>
 
                 <ModelPicker value={model} onChange={handleModelChange} />
+                <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={handleThinkingEffortChange} />
                 <PermissionPicker value={permissionMode} onChange={handlePermissionModeChange} />
                 {task.level !== "task" && (
                 <TasksPopover

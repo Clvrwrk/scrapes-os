@@ -177,6 +177,12 @@ export function getDb(): Database.Database {
     db.exec("ALTER TABLE tasks ADD COLUMN model TEXT");
   }
 
+  // Migration: add thinkingEffort column for selecting Claude reasoning effort per task
+  const effortCol = db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
+  if (!effortCol.some((c) => c.name === "thinkingEffort")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN thinkingEffort TEXT CHECK (thinkingEffort IN ('auto', 'low', 'medium', 'high', 'xhigh', 'max'))");
+  }
+
   // Migration: add conversationId column to tasks for autonomous mode linkage
   const convCol = db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
   if (!convCol.some((c) => c.name === "conversationId")) {

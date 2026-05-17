@@ -42,6 +42,7 @@ export function buildGoalDraftSnapshot(draft: GoalDraftPayload): string {
     level: draft.level,
     permissionMode: draft.permissionMode,
     model: draft.model,
+    thinkingEffort: draft.thinkingEffort,
     tag: draft.tag,
     pastedBlocks: draft.pastedBlocks,
     createdAt: draft.createdAt,
@@ -86,7 +87,10 @@ export function loadGoalDrafts(storage?: StorageLike): GoalDraftPayload[] {
       resolvedStorage.removeItem(STORAGE_KEY);
       return [];
     }
-    const drafts = parsed.filter(isGoalDraftPayload);
+    const drafts = parsed.filter(isGoalDraftPayload).map((draft) => ({
+      ...draft,
+      thinkingEffort: draft.thinkingEffort ?? null,
+    }));
     if (drafts.length !== parsed.length) {
       writeGoalDrafts(drafts, resolvedStorage);
     }
