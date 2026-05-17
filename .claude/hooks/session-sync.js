@@ -5,7 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 
 // Read stdin for session_id and cwd
 let input = "";
@@ -69,6 +69,30 @@ process.stdin.on("end", () => {
 
   const port = discoverPort();
 
+  // Get Claude's actual PID: hooks run as shell → node, so process.ppid is the
+  // shell. We query that shell's parent to get the Claude CLI process.
+  function getClaudePid() {
+    try {
+      const shellPid = process.ppid;
+      if (process.platform === "win32") {
+        const out = execSync(
+          `powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=${shellPid}' -ErrorAction SilentlyContinue).ParentProcessId"`,
+          { timeout: 1500, windowsHide: true }
+        ).toString().trim();
+        const pid = parseInt(out, 10);
+        return isNaN(pid) ? null : pid;
+      } else {
+        const out = execSync(`ps -o ppid= -p ${shellPid}`, { timeout: 1500 })
+          .toString().trim();
+        const pid = parseInt(out, 10);
+        return isNaN(pid) ? null : pid;
+      }
+    } catch {
+      return null;
+    }
+  }
+  const claudePid = getClaudePid();
+
   // Spawn background process to make the HTTP request
   const child = spawn(
     process.execPath,
@@ -84,7 +108,7 @@ process.stdin.on("end", () => {
       sessionId: ${JSON.stringify(sessionId)},
       cwd: ${JSON.stringify(cwd)},
       projectSlug: ${JSON.stringify(projectSlug)},
-      claudePid: ${process.ppid || "null"},
+      claudePid: ${claudePid || "null"},
     });
 
     const req = http.request(
@@ -111,6 +135,7 @@ process.stdin.on("end", () => {
                 taskId: result.taskId,
                 port: ${JSON.stringify(port)},
                 syncMode: result.syncMode || (result.isNew ? "hook-owned" : "managed"),
+                claudePid: ${claudePid || "null"},
               }));
             }
           } catch {}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Stop hook — logs Claude's response, marks task as "review", then checks
-// after a delay whether the session is still alive. If not → marks "done".
+// Stop hook — logs Claude's response and marks task as "review" (waiting for user input).
+// Status is NOT auto-advanced to "done" — user marks done explicitly via the UI.
 //
 // Stop fires after EVERY turn with `last_assistant_message`.
 // The UserPromptSubmit hook flips status back to "running" when the user replies.
@@ -33,7 +33,7 @@ process.stdin.on("end", () => {
     return;
   }
 
-  const { taskId, port, syncMode = "managed" } = mapping;
+  const { taskId, port, syncMode = "managed", claudePid = null } = mapping;
   if (!taskId) return;
 
   const safePort = JSON.stringify(String(port || "3000"));
@@ -59,10 +59,7 @@ process.stdin.on("end", () => {
   }
   const activityLabel = extractLabel(response);
 
-  // Get the parent process ID (the Claude CLI process)
-  const claudePid = process.ppid;
-
-  // Spawn background process for API calls + delayed session-alive check
+  // Spawn background process for API calls
   const child = spawn(
     process.execPath,
     [
@@ -106,27 +103,16 @@ process.stdin.on("end", () => {
         }
       }
 
-      // 2. Wait 3 seconds, then check if the Claude process is still alive
-      await new Promise((r) => setTimeout(r, 3000));
-
-      let processAlive = false;
-      try {
-        // kill(pid, 0) checks if process exists — doesn't actually send a signal
-        process.kill(${claudePid}, 0);
-        processAlive = true;
-      } catch {
-        processAlive = false;
-      }
-
-      if (!processAlive) {
-        if (${JSON.stringify(syncMode)} !== "managed") {
-          // Claude process is gone — session truly ended
-          await makeRequest("PATCH", "/api/tasks/${taskId}/status",
-            { status: "done", activityLabel: "Session ended" });
+      // Wait 3s then clean up the tmp session file if Claude has exited.
+      // Status is NOT patched to done — the UI or backend reaper handles that.
+      const storedPid = ${claudePid === null ? "null" : claudePid};
+      if (storedPid !== null) {
+        await new Promise((r) => setTimeout(r, 3000));
+        let alive = false;
+        try { process.kill(storedPid, 0); alive = true; } catch {}
+        if (!alive) {
+          try { fs.unlinkSync(${JSON.stringify(tmpFile)}); } catch {}
         }
-
-        // Clean up tmp file
-        try { fs.unlinkSync(${JSON.stringify(tmpFile)}); } catch {}
       }
     }
 
