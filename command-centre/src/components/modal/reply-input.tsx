@@ -12,6 +12,7 @@ import { ModelPicker } from "@/components/shared/model-picker";
 import { ComposerAssetTray } from "@/components/shared/composer-asset-tray";
 import { ComposerDraftAssetCollection } from "@/components/shared/composer-draft-asset-collection";
 import { TasksPopover, type SubtaskSummary } from "@/components/shared/tasks-popover";
+import { ContextUsageRing } from "./context-usage-ring";
 import { parseTodosFromInput } from "@/lib/claude-parser";
 import { useChatComposer } from "@/hooks/use-chat-composer";
 import { composeMessageWithAttachments } from "@/lib/chat-message-content";
@@ -444,6 +445,7 @@ export function ReplyInput({
     composer.message.trim().length > 0 ||
     composer.attachments.length > 0 ||
     composer.pastedBlocks.length > 0;
+  const contextRingTaskId = taskId === "empty" ? null : taskId;
 
   return (
     <div
@@ -683,6 +685,7 @@ export function ReplyInput({
               Discard draft
             </button>
           )}
+          <ContextUsageRing taskId={contextRingTaskId} />
           <ModelPicker value={model} onChange={handleModelChange} />
           <PermissionPicker value={permissionMode} onChange={handlePermissionModeChange} />
           {!hideTasksPopover && (
