@@ -1,37 +1,50 @@
 # /archive-gsd
 
-Mark a GSD project as complete. Each Level 3 project runs as a workstream inside
-`.planning/workstreams/{slug}/`. Archiving completes the workstream and flips the
-brief's status — the workstream data is moved to `.planning/milestones/` by GSD.
+Mark a GSD project as complete. GSD operates in two modes:
 
-## What This Does
-
-1. Lists active workstreams via `gsd-tools workstream list`.
-2. Asks the user which project to archive (if more than one active).
-3. Runs `gsd-tools workstream complete {slug}` — GSD moves the workstream to
-   `.planning/milestones/ws-{slug}-{date}/`.
-4. Updates the corresponding brief's frontmatter from `status: active` to
-   `status: complete`.
+- **Flat mode** — single project, files at `.planning/` root. Archive flips the brief status only.
+- **Workstream mode** — multiple projects at `.planning/workstreams/{slug}/`. Archive runs
+  `workstream complete` (moves state to `.planning/milestones/`) then flips the brief.
 
 ## Steps
 
-### Step 1: List active workstreams
+### Step 1: Detect GSD mode
 
 Run:
 ```
 node ~/.claude/get-shit-done/bin/gsd-tools.cjs workstream list --raw
 ```
 
-- **No workstreams / flat mode** → tell the user: "No active GSD project found — nothing to archive."
-- **One workstream** → continue to Step 2 with that workstream.
-- **Multiple workstreams** → ask the user which one to archive.
+Parse the `mode` field:
 
-### Step 2: Find the matching brief
+- **`"flat"`** → go to Step 2a.
+- **`"workstream"` with workstreams** → go to Step 2b.
+- **`"workstream"` with no workstreams** → tell the user: "No active GSD project found — nothing to archive."
 
-Look for `projects/briefs/*/brief.md` where the folder slug matches the workstream
-name and the brief has `level: 3` and `status: active`.
+### Step 2a: Flat mode — find the active brief
 
-### Step 3: Confirm with the user
+Scan `projects/briefs/*/brief.md` for `level: 3` and `status: active`.
+
+- **None** → "No active GSD project found — nothing to archive."
+- **One** → continue to Step 3a.
+- **Multiple** → ask the user which one to archive.
+
+### Step 2b: Workstream mode — pick the workstream
+
+- **One workstream** → continue to Step 3b.
+- **Multiple** → ask the user which one to archive.
+
+### Step 3a: Confirm (flat mode)
+
+> "I'll mark the GSD project **{brief-name}** as complete:"
+> - Update `projects/briefs/{slug}/brief.md` → `status: complete`
+> - `.planning/` stays in place
+>
+> "Go ahead?"
+
+Wait for confirmation, then flip `status: active` → `status: complete` in the brief frontmatter.
+
+### Step 3b: Confirm (workstream mode)
 
 > "I'll archive the GSD project **{workstream-name}**:"
 > - Run `workstream complete {workstream-name}` → moves planning state to `.planning/milestones/`
@@ -39,30 +52,34 @@ name and the brief has `level: 3` and `status: active`.
 >
 > "Go ahead?"
 
-Wait for confirmation before proceeding.
+Wait for confirmation, then:
 
-### Step 4: Complete the workstream
-
-Run:
+1. Run:
 ```
 node ~/.claude/get-shit-done/bin/gsd-tools.cjs workstream complete {slug} --raw
 ```
 
-### Step 5: Flip the brief status
+2. Find the matching brief at `projects/briefs/*/brief.md` where the folder name matches
+   the workstream slug and `level: 3` and `status: active`.
 
-Edit the brief's YAML frontmatter: change `status: active` to `status: complete`.
+3. Flip `status: active` → `status: complete` in the brief frontmatter.
 
-### Step 6: Report
+### Step 4: Report
 
+**Flat mode:**
+> "Done. **{project-name}** is archived."
+>
+> - Brief: `projects/briefs/{slug}/brief.md` (status: complete)
+> - Planning: `.planning/` (unchanged)
+
+**Workstream mode:**
 > "Done. **{workstream-name}** is archived."
 >
 > - Planning state: `.planning/milestones/ws-{slug}-{date}/` (moved by GSD)
 > - Brief: `projects/briefs/{slug}/brief.md` (status: complete)
->
-> "Other GSD projects are unaffected. Start a new one any time with `/gsd:new-project`."
 
 ## Anti-Patterns
 
-- Never delete workstream files manually — always use `workstream complete`.
+- Never delete `.planning/` files manually — use `workstream complete` in workstream mode.
 - Never archive without user confirmation.
-- Never assume there's only one active workstream — always check.
+- Never assume workstream mode — always check `mode` from `workstream list --raw`.

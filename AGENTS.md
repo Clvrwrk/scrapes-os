@@ -313,7 +313,7 @@ Load only the `brand_context/` files listed for each skill.
 
 **Level 2 brief requirements:** goal, deliverables, acceptance criteria, constraints, and dependencies. Keep it to one page.
 
-**Level 3 rule:** GSD's `.planning/` folder lives at the workspace root. Multiple GSD projects run in parallel as workstreams — each gets its own namespace at `.planning/workstreams/{slug}/`. Archive finished GSD work with `/archive-gsd` (completes the workstream and flips the brief's status).
+**Level 3 rule:** GSD's `.planning/` folder lives at the workspace root — one GSD project active at a time per workspace. For parallel GSD projects, use separate client workspaces (`clients/{name}/`), each of which has its own `.planning/`. Archive finished GSD work with `/archive-gsd` (flips the brief's status to complete).
 
 **Project containment rule:** The Agentic OS root is the operating system, not a place for project outputs. All project source code, configs, manifests, build artifacts, and data files must live inside the project folder.
 

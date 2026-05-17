@@ -67,9 +67,9 @@ created: 2026-03-24
 
 For complex multi-phase work with dependencies and milestones.
 
-GSD uses a `.planning/` folder at the workspace root to store its roadmap, phase plans, and verification reports. This folder always lives at the root of your session — `agentic-os/.planning/` for solo work, or `clients/client-name/.planning/` for a client workspace.
+GSD uses a `.planning/` folder at the workspace root to store its roadmap, requirements, phase plans, and state. This folder always lives at the root of your current session — `agentic-os/.planning/` for solo work, or `clients/client-name/.planning/` for a client workspace.
 
-Your project's outputs and brief live in `projects/briefs/{project-name}/` as usual. GSD's `.planning/` is its own working space separate from your outputs.
+Your project's outputs and brief live in `projects/briefs/{project-name}/` as usual. GSD's `.planning/` is its working space — separate from your outputs.
 
 ```
 projects/briefs/website-rebuild/     <- project folder (your outputs)
@@ -80,56 +80,26 @@ projects/briefs/website-rebuild/     <- project folder (your outputs)
 .planning/                           <- GSD working space (at workspace root)
 ├── PROJECT.md
 ├── config.json
-├── research/
-└── workstreams/
-    └── website-rebuild/             <- this project's planning state
-        ├── ROADMAP.md
-        ├── STATE.md
-        └── phases/
-            ├── 01-foundation/
-            │   ├── PLAN.md
-            │   └── VERIFICATION.md
-            └── 02-build/
+├── REQUIREMENTS.md
+├── ROADMAP.md
+├── STATE.md
+└── phases/
+    ├── 01-foundation/
+    └── 02-build/
 ```
 
-### Multiple GSD projects in parallel — workstreams
+### One GSD project at a time per workspace
 
-Each GSD project lives as a **workstream** inside `.planning/workstreams/{slug}/`. This means multiple projects can run in parallel in the same workspace — each with its own roadmap, state, and phases — without colliding.
+Each workspace runs one GSD project at a time:
 
-When you start your first project, GSD creates a flat `.planning/` structure. When you start a second project, GSD automatically migrates the first into `.planning/workstreams/{name}/` and creates the new one alongside it.
+- **Solo user:** one GSD project active at a time in your root folder
+- **Multi-client:** each client folder is its own workspace — `clients/abc/` and `clients/xyz/` can each have an active GSD project running simultaneously
 
-```
-.planning/
-├── PROJECT.md
-├── config.json
-└── workstreams/
-    ├── website-rebuild/       <- Project A (active)
-    │   ├── ROADMAP.md
-    │   ├── STATE.md
-    │   └── phases/
-    └── email-campaign/        <- Project B (active in parallel)
-        ├── ROADMAP.md
-        ├── STATE.md
-        └── phases/
-```
+If you try to start a new GSD project while one is already active in the same folder, GSD will block it and ask you to resume or archive first.
 
 ### Archiving a completed GSD project
 
-When you're done with a GSD project, run `/archive-gsd`. This:
-
-1. Completes the workstream — GSD archives it to `.planning/milestones/`
-2. Updates the brief's status to `complete`
-
-```
-.planning/
-├── milestones/
-│   └── ws-website-rebuild-2026-05-15/   <- archived workstream
-│       ├── ROADMAP.md
-│       ├── STATE.md
-│       └── phases/
-└── workstreams/
-    └── email-campaign/                  <- remaining active project
-```
+When you're done with a GSD project, run `/archive-gsd`. This updates the brief's status to `complete` and leaves `.planning/` in place as a historical record. Start a new GSD project any time with `/gsd:new-project`.
 
 ---
 
@@ -158,11 +128,10 @@ projects/
 .planning/                          <- GSD only (Level 3), at workspace root
 ├── PROJECT.md
 ├── config.json
-└── workstreams/
-    └── website-rebuild/            <- one workstream per Level 3 project
-        ├── ROADMAP.md
-        ├── STATE.md
-        └── phases/
+├── REQUIREMENTS.md
+├── ROADMAP.md
+├── STATE.md
+└── phases/
 ```
 
 **How to tell them apart:**
