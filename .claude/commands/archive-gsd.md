@@ -17,7 +17,7 @@ node ~/.claude/get-shit-done/bin/gsd-tools.cjs workstream list --raw
 
 Parse the `mode` field:
 
-- **`"flat"`** → go to Step 2a.
+- **`"flat"`** → flat mode means a single project with no workstreams. This is the default. **Immediately proceed to Step 2a** — do NOT stop here, the project brief may still exist.
 - **`"workstream"` with workstreams** → go to Step 2b.
 - **`"workstream"` with no workstreams** → tell the user: "No active GSD project found — nothing to archive."
 
