@@ -67,35 +67,35 @@ created: 2026-03-24
 
 For complex multi-phase work with dependencies and milestones.
 
-GSD uses a `.planning/` folder at the workspace root to store its roadmap, requirements, phase plans, and state. This folder always lives at the root of your current session — `agentic-os/.planning/` for solo work, or `clients/client-name/.planning/` for a client workspace.
+GSD uses a `.planning/` folder at the root of each workspace to store its roadmap, requirements, phase plans, and state. For client work, this lives inside the client folder — `clients/client-name/.planning/`. The root `agentic-os/` folder should never have `.planning/`; keeping it clean is what allows multiple clients to run GSD projects in parallel.
 
-Your project's outputs and brief live in `projects/briefs/{project-name}/` as usual. GSD's `.planning/` is its working space — separate from your outputs.
+Your project's outputs and brief live in `projects/briefs/{project-name}/` inside the same workspace.
 
 ```
-projects/briefs/website-rebuild/     <- project folder (your outputs)
-├── brief.md
-├── 2026-03-24_homepage-copy.md
-└── 2026-03-25_sitemap.excalidraw
-
-.planning/                           <- GSD working space (at workspace root)
-├── PROJECT.md
-├── config.json
-├── REQUIREMENTS.md
-├── ROADMAP.md
-├── STATE.md
-└── phases/
-    ├── 01-foundation/
-    └── 02-build/
+clients/website-client/              <- client workspace
+├── .planning/                       <- GSD working space (at client root)
+│   ├── PROJECT.md
+│   ├── config.json
+│   ├── REQUIREMENTS.md
+│   ├── ROADMAP.md
+│   ├── STATE.md
+│   └── phases/
+│       ├── 01-foundation/
+│       └── 02-build/
+└── projects/briefs/website-rebuild/ <- project outputs
+    ├── brief.md
+    ├── 2026-03-24_homepage-copy.md
+    └── 2026-03-25_sitemap.excalidraw
 ```
 
-### One GSD project at a time per workspace
+### Multiple GSD projects in parallel
 
-Each workspace runs one GSD project at a time:
+Each client workspace runs its own independent GSD project:
 
-- **Solo user:** one GSD project active at a time in your root folder
-- **Multi-client:** each client folder is its own workspace — `clients/abc/` and `clients/xyz/` can each have an active GSD project running simultaneously
+- **`clients/abc/`** → active GSD project at `clients/abc/.planning/`
+- **`clients/xyz/`** → active GSD project at `clients/xyz/.planning/`
 
-If you try to start a new GSD project while one is already active in the same folder, GSD will block it and ask you to resume or archive first.
+To start a GSD project for a client, select that client in the command-centre and ask Claude to run `/gsd:new-project`. GSD creates `.planning/` in the client workspace root automatically.
 
 ### Archiving a completed GSD project
 
@@ -115,23 +115,24 @@ projects/
     ├── kanban-dashboard/           <- Level 2 planned project (has brief.md)
     │   ├── brief.md
     │   └── 2026-03-24_architecture.md
-    ├── q2-product-launch/          <- Level 2 planned project
-    │   ├── brief.md
-    │   ├── 2026-03-24_landing-page.md
-    │   ├── 2026-03-25_email-sequence.md
-    │   └── 2026-03-22_competitor-scan.md
-    └── website-rebuild/            <- Level 3 GSD project (has brief.md, links to .planning/)
+    └── q2-product-launch/          <- Level 2 planned project
         ├── brief.md
-        ├── 2026-03-24_homepage-copy.md
-        └── 2026-03-25_sitemap.excalidraw
+        ├── 2026-03-24_landing-page.md
+        └── 2026-03-25_email-sequence.md
 
-.planning/                          <- GSD only (Level 3), at workspace root
-├── PROJECT.md
-├── config.json
-├── REQUIREMENTS.md
-├── ROADMAP.md
-├── STATE.md
-└── phases/
+clients/
+└── website-client/                 <- Level 3 GSD project lives inside a client workspace
+    ├── .planning/                  <- GSD working space (at client root, never at agentic-os root)
+    │   ├── PROJECT.md
+    │   ├── config.json
+    │   ├── REQUIREMENTS.md
+    │   ├── ROADMAP.md
+    │   ├── STATE.md
+    │   └── phases/
+    └── projects/briefs/
+        └── website-rebuild/        <- project outputs
+            ├── brief.md
+            └── 2026-03-24_homepage-copy.md
 ```
 
 **How to tell them apart:**
