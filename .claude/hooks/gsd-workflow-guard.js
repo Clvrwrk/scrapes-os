@@ -15,30 +15,17 @@ const fs = require('fs');
 const path = require('path');
 
 // Resolve the active planning config by walking up from cwd.
-// Supports per-brief layout (projects/briefs/{slug}/.planning/).
+// Supports the per-client layout: clients/{name}/.planning/
+// Also handles legacy root .planning/ for solo workspaces.
 function findPlanningConfig(startCwd) {
+  const os = require('os');
+  const home = os.homedir();
   let current = path.resolve(startCwd);
-  for (let depth = 0; depth < 20; depth += 1) {
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    if (path.basename(parent) === 'briefs' && path.basename(path.dirname(parent)) === 'projects') {
-      const p = path.join(current, '.planning', 'config.json');
-      return fs.existsSync(p) ? p : null;
-    }
-    current = parent;
+  while (current !== path.dirname(current) && current !== home) {
+    const candidate = path.join(current, '.planning', 'config.json');
+    if (fs.existsSync(candidate)) return candidate;
+    current = path.dirname(current);
   }
-  try {
-    const briefsDir = path.join(startCwd, 'projects', 'briefs');
-    if (fs.existsSync(briefsDir)) {
-      const active = [];
-      for (const entry of fs.readdirSync(briefsDir, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const p = path.join(briefsDir, entry.name, '.planning', 'config.json');
-        if (fs.existsSync(p)) active.push(p);
-      }
-      if (active.length === 1) return active[0];
-    }
-  } catch { /* ignore */ }
   return null;
 }
 
