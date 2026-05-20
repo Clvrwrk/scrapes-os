@@ -168,6 +168,27 @@ This step absorbs the checks deferred from startup to keep session start fast. R
 
 Log any sync actions in the session summary under a **Registry sync** line.
 
+### 3g: Update Working Memory
+
+Promote durable facts from the session into `context/MEMORY.md` (the curated scratchpad read at session start).
+
+1. Read the `## Session N` block finalised in step 3c
+2. Identify durable facts worth keeping beyond today:
+   - New URLs, configs, tool versions, project structure → `## Environment Notes`
+   - Threads still warm or unfinished → `## Active Threads`
+   - Decisions waiting on user input → `## Pending Decisions`
+3. Read `context/MEMORY.md` and apply changes:
+   - Add new durable facts to the appropriate section (dedup check first — substring match)
+   - Remove threads that were resolved this session
+   - Replace stale entries with current values
+4. Check character count:
+   - Bash: `wc -c < context/MEMORY.md`
+   - PowerShell: `(Get-Item context/MEMORY.md).Length`
+5. If over **2,500 chars**, consolidate (merge similar lines, tighten verbose entries) before saving
+6. Skip silently if nothing durable surfaced this session — most planning/discussion sessions won't have anything to promote
+
+Report usage in the session summary under the **Memory** block: `MEMORY.md: {N}/2,500 chars ({pct}%)`.
+
 ---
 
 ## Step 4: Commit & Push
@@ -203,6 +224,7 @@ Registry sync:
 
 Memory:
 - Daily log: context/memory/{YYYY-MM-DD}.md
+- MEMORY.md: {N}/2,500 chars ({pct}%){, plus any promotions made — or "No durable facts promoted"}
 - SOUL.md: {proposed change, or "No evolution needed"}
 - User prefs: {what was updated in context/USER.md, or "No changes"}
 

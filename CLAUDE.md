@@ -16,12 +16,13 @@ Scan `brand_context/` for populated `.md` files (ls, not read).
 
 ### Returning Mode (silent — zero output)
 
-Do these four steps silently. Do NOT output anything — no greeting, no recap, no capabilities list.
+Do these five steps silently. Do NOT output anything — no greeting, no recap, no capabilities list.
 
 1. Read `context/SOUL.md` (~3 KB). Fall back to `../../context/SOUL.md` if not in the current folder.
 2. Read `context/USER.md` (~1.5 KB). Fall back to `../../context/USER.md`.
 3. Read today's memory file `context/memory/{YYYY-MM-DD}.md`. Only read yesterday's if today has no prior sessions. If a `### Project` reference exists, load that brief. Note any `### Open threads`.
-4. Create or append a `## Session N` block in today's memory file. Scan `.claude/skills/` silently (ls only).
+4. Read `context/MEMORY.md` (~2.5 KB max — curated working scratchpad with Active Threads, Environment Notes, Pending Decisions). Fall back to `../../context/MEMORY.md`. This is a frozen snapshot — mid-session writes persist to disk but only take effect on the next session.
+5. Create or append a `## Session N` block in today's memory file. Scan `.claude/skills/` silently (ls only).
 
 **What NOT to do at startup (deferred to wrap-up or on-demand):**
 - Do NOT read `brand_context/` files — skills lazy-load these per Context Matrix when needed
