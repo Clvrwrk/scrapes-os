@@ -11,6 +11,9 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(wc -c *)",
+      "Bash(powershell -Command (Get-Item *).Length)",
+      "Bash(powershell -Command (Get-Item *)*)",
       "Read(*)",
       "Edit(*)",
       "Write(*)"
@@ -87,6 +90,10 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-sync.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/load-memory-snapshot.js\""
           }
         ]
       }
