@@ -1,5 +1,5 @@
 import type { ChatPastedBlock } from "@/types/chat-composer";
-import type { ClaudeModel, PermissionMode, TaskLevel } from "@/types/task";
+import type { ClaudeModel, ClaudeThinkingEffort, PermissionMode, TaskLevel } from "@/types/task";
 
 export interface GoalDraftAttachment {
   fileName: string;
@@ -18,6 +18,7 @@ export interface GoalDraftPayload {
   level: TaskLevel;
   permissionMode: PermissionMode;
   model: ClaudeModel | null;
+  thinkingEffort: ClaudeThinkingEffort | null;
   tag: string | null;
   pastedBlocks: ChatPastedBlock[];
   createdAt: string;

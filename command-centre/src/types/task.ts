@@ -7,6 +7,7 @@ export type TaskLevel = "task" | "project" | "gsd";
 export type GsdStep = "discuss" | "plan" | "execute" | "verify";
 export type PermissionMode = "plan" | "default" | "acceptEdits" | "auto" | "bypassPermissions";
 export type ClaudeModel = "opus" | "sonnet" | "haiku";
+export type ClaudeThinkingEffort = "auto" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface Todo {
   content: string;
@@ -87,6 +88,7 @@ export interface Task {
   permissionMode: PermissionMode;
   executionPermissionMode?: PermissionMode | null;
   model?: ClaudeModel | null;
+  thinkingEffort?: ClaudeThinkingEffort | null;
   lastReplyAt: string | null;
   conversationId?: string | null;
   originMessageId?: string | null;
@@ -128,6 +130,7 @@ export interface TaskCreateInput {
   permissionMode?: PermissionMode;
   executionPermissionMode?: PermissionMode | null;
   model?: ClaudeModel | null;
+  thinkingEffort?: ClaudeThinkingEffort | null;
   conversationId?: string | null;
   originMessageId?: string | null;
 }
@@ -156,6 +159,7 @@ export type TaskUpdateInput = Partial<
     | "permissionMode"
     | "executionPermissionMode"
     | "model"
+    | "thinkingEffort"
     | "conversationId"
     | "originMessageId"
     | "teamId"

@@ -2,16 +2,18 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ArrowUp, Paperclip } from "lucide-react";
-import type { LogEntry, PermissionMode, ClaudeModel, Todo } from "@/types/task";
+import type { LogEntry, PermissionMode, ClaudeModel, ClaudeThinkingEffort, Todo } from "@/types/task";
 import type { ChatAttachment } from "@/types/chat-composer";
 import { useTaskStore } from "@/store/task-store";
 import { SlashCommandMenu } from "@/components/shared/slash-command-menu";
 import type { TagItem } from "@/components/shared/slash-command-menu";
 import { PermissionPicker } from "@/components/shared/permission-picker";
 import { ModelPicker } from "@/components/shared/model-picker";
+import { ThinkingEffortPicker } from "@/components/shared/thinking-effort-picker";
 import { ComposerAssetTray } from "@/components/shared/composer-asset-tray";
 import { ComposerDraftAssetCollection } from "@/components/shared/composer-draft-asset-collection";
 import { TasksPopover, type SubtaskSummary } from "@/components/shared/tasks-popover";
+import { ContextUsageRing } from "./context-usage-ring";
 import { parseTodosFromInput } from "@/lib/claude-parser";
 import { useChatComposer } from "@/hooks/use-chat-composer";
 import { composeMessageWithAttachments } from "@/lib/chat-message-content";
@@ -21,6 +23,7 @@ import {
   getPickerPermissionMode,
   normalizePermissionMode,
 } from "@/lib/permission-mode";
+import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
 import type { SlashCommand } from "@/lib/slash-commands";
 import { recordTagUsage } from "@/components/board/goal-chips";
 import { syncComposerTextareaHeight } from "@/lib/composer";
@@ -125,6 +128,8 @@ interface ReplyInputProps {
   initialExecutionPermissionMode?: PermissionMode | null;
   /** Initial model selection (sourced from the task row). */
   initialModel?: ClaudeModel | null;
+  /** Initial thinking effort selection (sourced from the task row). */
+  initialThinkingEffort?: ClaudeThinkingEffort | null;
   /** Real child subtasks for the Subtasks popover. */
   subtasks?: SubtaskSummary[];
   /** Click handler for a subtask row. */
@@ -143,7 +148,7 @@ interface ReplyInputProps {
   onRunSubtaskInPane?: (subtaskId: string, paneId: string) => void;
   /** When set, the first message creates a new pane task instead of replying.
    *  Returns the new task ID on success, null on failure. */
-  onCreatePaneTask?: (message: string, permissionMode: string, model: ClaudeModel | null, attachments: ChatAttachment[]) => Promise<string | null>;
+  onCreatePaneTask?: (message: string, permissionMode: string, model: ClaudeModel | null, thinkingEffort: ClaudeThinkingEffort | null, attachments: ChatAttachment[]) => Promise<string | null>;
   /** Compact mode — shrink toolbar elements (for multi-pane layouts) */
   compact?: boolean;
   /** Project slug — used to pin the relevant brief at the top of the @ menu */
@@ -161,6 +166,7 @@ export function ReplyInput({
   initialPermissionMode = "bypassPermissions",
   initialExecutionPermissionMode = null,
   initialModel = null,
+  initialThinkingEffort = null,
   subtasks,
   onSelectSubtask,
   onRunSubtask,
@@ -191,6 +197,7 @@ export function ReplyInput({
     ),
   );
   const [model, setModel] = useState<ClaudeModel | null>(initialModel);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(initialThinkingEffort ?? "auto");
   const composer = useChatComposer({
     surface: "task",
     scopeId: taskId,
@@ -234,7 +241,8 @@ export function ReplyInput({
       ),
     );
     setModel(initialModel);
-  }, [taskId, initialPermissionMode, initialExecutionPermissionMode, initialModel]);
+    setThinkingEffort(initialThinkingEffort ?? "auto");
+  }, [taskId, initialPermissionMode, initialExecutionPermissionMode, initialModel, initialThinkingEffort]);
 
   useEffect(() => {
     syncComposerTextareaHeight(composer.textareaRef.current, {
@@ -287,9 +295,18 @@ export function ReplyInput({
   }, [activePermissionMode, executionPermissionMode, onCreatePaneTask, taskId, updateTask]);
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort);
     setModel(nextModel);
+    setThinkingEffort(nextThinkingEffort);
     if (!onCreatePaneTask) {
-      void updateTask(taskId, { model: nextModel });
+      void updateTask(taskId, { model: nextModel, thinkingEffort: nextThinkingEffort });
+    }
+  }, [onCreatePaneTask, taskId, thinkingEffort, updateTask]);
+
+  const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
+    setThinkingEffort(nextThinkingEffort);
+    if (!onCreatePaneTask) {
+      void updateTask(taskId, { thinkingEffort: nextThinkingEffort });
     }
   }, [onCreatePaneTask, taskId, updateTask]);
 
@@ -308,6 +325,7 @@ export function ReplyInput({
           submission.message,
           activePermissionMode === "plan" ? "plan" : permissionMode,
           model,
+          thinkingEffort,
           submission.attachments,
         );
         composer.clearComposer();
@@ -352,6 +370,7 @@ export function ReplyInput({
           permissionMode: activePermissionMode === "plan" ? "plan" : permissionMode,
           executionPermissionMode,
           model,
+          thinkingEffort,
         }),
       });
       if (!res.ok) {
@@ -375,6 +394,7 @@ export function ReplyInput({
     permissionMode,
     executionPermissionMode,
     model,
+    thinkingEffort,
   ]);
 
   const handleSlashSelect = useCallback(async (cmd: SlashCommand) => {
@@ -444,6 +464,7 @@ export function ReplyInput({
     composer.message.trim().length > 0 ||
     composer.attachments.length > 0 ||
     composer.pastedBlocks.length > 0;
+  const contextRingTaskId = taskId === "empty" ? null : taskId;
 
   return (
     <div
@@ -683,7 +704,9 @@ export function ReplyInput({
               Discard draft
             </button>
           )}
+          <ContextUsageRing taskId={contextRingTaskId} />
           <ModelPicker value={model} onChange={handleModelChange} />
+          <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={handleThinkingEffortChange} />
           <PermissionPicker value={permissionMode} onChange={handlePermissionModeChange} />
           {!hideTasksPopover && (
           <TasksPopover

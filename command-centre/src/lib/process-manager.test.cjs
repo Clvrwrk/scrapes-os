@@ -48,11 +48,12 @@ function createFakeDb(task) {
               : undefined;
           }
 
-          if (normalized.includes("SELECT permissionMode, model, cronJobSlug, projectSlug FROM tasks WHERE id = ?")) {
+          if (normalized.includes("SELECT permissionMode, model, thinkingEffort, cronJobSlug, projectSlug FROM tasks WHERE id = ?")) {
             return args[0] === state.task.id
               ? {
                   permissionMode: state.task.permissionMode ?? null,
                   model: state.task.model ?? null,
+                  thinkingEffort: state.task.thinkingEffort ?? null,
                   cronJobSlug: state.task.cronJobSlug ?? null,
                   projectSlug: state.task.projectSlug ?? null,
                 }
@@ -538,6 +539,7 @@ test("ask mode spawn wires the permission bridge and isolated settings", () => {
     assert.ok(args.includes("user"));
     assert.ok(args.includes("--settings"));
     assert.ok(args.includes("--mcp-config"));
+    assert.equal(args.includes("--effort"), false);
 
     const settingsPath = args[args.indexOf("--settings") + 1];
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -555,6 +557,145 @@ test("ask mode spawn wires the permission bridge and isolated settings", () => {
     assert.equal(mcpConfig.mcpServers.permissions.args[0], bridgeScriptPath);
     fs.unlinkSync(settingsPath);
     fs.unlinkSync(mcpConfigPath);
+  } finally {
+    delete global.__processManager;
+    cleanupTempWorkspace(workspaceDir);
+  }
+});
+
+test("spawn passes --effort when thinking effort is explicit", () => {
+  const workspaceDir = makeTempWorkspace();
+  const now = new Date().toISOString();
+  const task = {
+    id: "task-effort-high",
+    title: "High effort task",
+    description: "Verify effort spawn arguments",
+    status: "running",
+    level: "task",
+    parentId: null,
+    projectSlug: null,
+    clientId: null,
+    needsInput: 0,
+    phaseNumber: null,
+    gsdStep: null,
+    cronJobSlug: null,
+    permissionMode: "bypassPermissions",
+    model: "sonnet",
+    thinkingEffort: "high",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const db = createFakeDb(task);
+  const spawnCalls = [];
+
+  try {
+    const { processManager } = loadProcessManagerModule({
+      "./db": { getDb: () => db },
+      "./event-bus": {
+        emitTaskEvent: () => {},
+        emitChatEvent: () => {},
+      },
+      "./config": {
+        getConfig: () => ({ agenticOsDir: workspaceDir }),
+        getClientAgenticOsDir: (clientId) => path.join(workspaceDir, "clients", clientId),
+      },
+      "./claude-parser": {
+        ClaudeOutputParser: class {
+          constructor() {}
+          feedLine() {}
+          get isCompleted() {
+            return false;
+          }
+        },
+      },
+      "./subprocess": {
+        spawnManagedTaskProcess: (command, args) => {
+          spawnCalls.push({ command, args: [...args] });
+          const proc = new EventEmitter();
+          proc.stdout = new Readable({ read() { this.push(null); } });
+          proc.stderr = new Readable({ read() { this.push(null); } });
+          proc.stdin = { end() {} };
+          proc.unref = () => {};
+          proc.pid = 12345;
+          return proc;
+        },
+        killChildProcessTree: () => {},
+      },
+    });
+
+    processManager.spawnClaudeTurn(task.id, "Think hard", workspaceDir, false, false);
+
+    const args = spawnCalls[0].args;
+    assert.equal(args[args.indexOf("--effort") + 1], "high");
+  } finally {
+    delete global.__processManager;
+    cleanupTempWorkspace(workspaceDir);
+  }
+});
+
+test("spawn omits --effort when thinking effort is auto", () => {
+  const workspaceDir = makeTempWorkspace();
+  const now = new Date().toISOString();
+  const task = {
+    id: "task-effort-auto",
+    title: "Auto effort task",
+    description: "Verify auto effort spawn arguments",
+    status: "running",
+    level: "task",
+    parentId: null,
+    projectSlug: null,
+    clientId: null,
+    needsInput: 0,
+    phaseNumber: null,
+    gsdStep: null,
+    cronJobSlug: null,
+    permissionMode: "bypassPermissions",
+    model: "sonnet",
+    thinkingEffort: "auto",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const db = createFakeDb(task);
+  const spawnCalls = [];
+
+  try {
+    const { processManager } = loadProcessManagerModule({
+      "./db": { getDb: () => db },
+      "./event-bus": {
+        emitTaskEvent: () => {},
+        emitChatEvent: () => {},
+      },
+      "./config": {
+        getConfig: () => ({ agenticOsDir: workspaceDir }),
+        getClientAgenticOsDir: (clientId) => path.join(workspaceDir, "clients", clientId),
+      },
+      "./claude-parser": {
+        ClaudeOutputParser: class {
+          constructor() {}
+          feedLine() {}
+          get isCompleted() {
+            return false;
+          }
+        },
+      },
+      "./subprocess": {
+        spawnManagedTaskProcess: (command, args) => {
+          spawnCalls.push({ command, args: [...args] });
+          const proc = new EventEmitter();
+          proc.stdout = new Readable({ read() { this.push(null); } });
+          proc.stderr = new Readable({ read() { this.push(null); } });
+          proc.stdin = { end() {} };
+          proc.unref = () => {};
+          proc.pid = 12345;
+          return proc;
+        },
+        killChildProcessTree: () => {},
+      },
+    });
+
+    processManager.spawnClaudeTurn(task.id, "Use auto effort", workspaceDir, false, false);
+
+    assert.equal(spawnCalls[0].args.includes("--effort"), false);
   } finally {
     delete global.__processManager;
     cleanupTempWorkspace(workspaceDir);

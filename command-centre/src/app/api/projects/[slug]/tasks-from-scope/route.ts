@@ -136,14 +136,15 @@ export async function POST(
       "bypassPermissions",
     );
     const inheritedModel = parentTask?.model ?? null;
+    const inheritedThinkingEffort = parentTask?.thinkingEffort ?? null;
 
     // Pass 1: insert a row for each suggested subtask.
     const createdIds: string[] = [];
     const createdTasks: Task[] = [];
 
     const insertStmt = db.prepare(
-      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, dependsOnTaskIds)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, thinkingEffort, dependsOnTaskIds)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     // Get min columnOrder so new tasks sort to the top of queued, matching the /api/tasks POST behaviour.
@@ -188,6 +189,7 @@ export async function POST(
         permissionMode: inheritedPermissionMode,
         executionPermissionMode: inheritedExecutionMode,
         model: inheritedModel,
+        thinkingEffort: inheritedThinkingEffort,
         lastReplyAt: null,
         goalGroup: null,
         tag: null,
@@ -221,6 +223,7 @@ export async function POST(
         task.permissionMode,
         task.executionPermissionMode,
         task.model,
+        task.thinkingEffort,
         null
       );
 

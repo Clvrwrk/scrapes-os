@@ -4,14 +4,16 @@ import { useCallback, useEffect, useState, KeyboardEvent } from "react";
 import { Paperclip, Send } from "lucide-react";
 import { PermissionPicker } from "@/components/shared/permission-picker";
 import { ModelPicker } from "@/components/shared/model-picker";
+import { ThinkingEffortPicker } from "@/components/shared/thinking-effort-picker";
 import { ComposerAssetTray } from "@/components/shared/composer-asset-tray";
 import { ComposerDraftAssetCollection } from "@/components/shared/composer-draft-asset-collection";
 import { useChatComposer } from "@/hooks/use-chat-composer";
 import { useComposerResize } from "@/hooks/use-composer-resize";
-import type { PermissionMode, ClaudeModel } from "@/types/task";
+import type { PermissionMode, ClaudeModel, ClaudeThinkingEffort } from "@/types/task";
 import type { ChatAttachment } from "@/types/chat-composer";
 import { insertTextareaNewline, shouldInsertModifierNewline, shouldSubmitOnPlainEnter, syncComposerTextareaHeight } from "@/lib/composer";
 import { getChatAttachmentExtension } from "@/lib/chat-attachment-policy";
+import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
 
 interface ChatInputProps {
   scopeId?: string | null;
@@ -20,6 +22,7 @@ interface ChatInputProps {
     options: {
       permissionMode: PermissionMode;
       model: ClaudeModel | null;
+      thinkingEffort: ClaudeThinkingEffort | null;
       attachments: ChatAttachment[];
     },
   ) => void;
@@ -30,6 +33,7 @@ interface ChatInputProps {
 export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputProps) {
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("bypassPermissions");
   const [model, setModel] = useState<ClaudeModel | null>(null);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>("auto");
   const composer = useChatComposer({
     surface: "conversation",
     scopeId,
@@ -65,10 +69,16 @@ export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputP
     onSend(submission.message, {
       permissionMode,
       model,
+      thinkingEffort,
       attachments: submission.attachments,
     });
     composer.clearComposer();
-  }, [composer, disabled, model, onSend, permissionMode]);
+  }, [composer, disabled, model, onSend, permissionMode, thinkingEffort]);
+
+  const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    setModel(nextModel);
+    setThinkingEffort((current) => normalizeClaudeThinkingEffortForModel(nextModel, current ?? "auto"));
+  }, []);
 
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldInsertModifierNewline(event)) {
@@ -271,7 +281,8 @@ export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputP
               Discard draft
             </button>
           )}
-          <ModelPicker value={model} onChange={setModel} />
+          <ModelPicker value={model} onChange={handleModelChange} />
+          <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={setThinkingEffort} />
           <PermissionPicker value={permissionMode} onChange={setPermissionMode} />
         </div>
       </div>

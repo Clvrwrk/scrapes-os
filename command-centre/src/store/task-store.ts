@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Task, TaskLevel, TaskUpdateInput, OutputFile, LogEntry, ClaudeModel } from "@/types/task";
+import type { Task, TaskLevel, TaskUpdateInput, OutputFile, LogEntry, ClaudeModel, ClaudeThinkingEffort } from "@/types/task";
 import type { TaskEvent } from "@/lib/event-bus";
 import { isLegacyCronFallbackLogEntry, isLegacyCronFallbackLogSet } from "@/lib/task-logs";
 import {
@@ -36,7 +36,7 @@ interface TaskStore {
 
   // Actions
   fetchTasks: () => Promise<void>;
-  createTask: (title: string, description: string | null, level: TaskLevel, projectSlug?: string | null, parentId?: string | null, permissionMode?: string, initialStatus?: string, clientId?: string | null, model?: ClaudeModel | null) => Promise<string | null>;
+  createTask: (title: string, description: string | null, level: TaskLevel, projectSlug?: string | null, parentId?: string | null, permissionMode?: string, initialStatus?: string, clientId?: string | null, model?: ClaudeModel | null, thinkingEffort?: ClaudeThinkingEffort | null) => Promise<string | null>;
   updateTask: (id: string, updates: TaskUpdateInput) => Promise<void>;
   moveTask: (id: string, newStatus: string, newOrder: number) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -134,7 +134,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  createTask: async (title: string, description: string | null, level: TaskLevel, projectSlug?: string | null, parentId?: string | null, permissionMode?: string, initialStatus?: string, clientIdOverride?: string | null, model?: ClaudeModel | null) => {
+  createTask: async (title: string, description: string | null, level: TaskLevel, projectSlug?: string | null, parentId?: string | null, permissionMode?: string, initialStatus?: string, clientIdOverride?: string | null, model?: ClaudeModel | null, thinkingEffort?: ClaudeThinkingEffort | null) => {
     const tempId = "temp-" + crypto.randomUUID();
     const now = new Date().toISOString();
     const currentClientId = clientIdOverride !== undefined ? clientIdOverride : useClientStore.getState().selectedClientId;
@@ -168,6 +168,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       permissionMode: activePermissionMode,
       executionPermissionMode,
       model: model ?? null,
+      thinkingEffort: thinkingEffort ?? null,
       lastReplyAt: null,
       goalGroup: null,
       tag: null,
@@ -195,6 +196,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           permissionMode: activePermissionMode,
           executionPermissionMode,
           model,
+          thinkingEffort,
           status: initialStatus,
         }),
       });

@@ -6,15 +6,19 @@ import { composeMessageWithAttachments } from "@/lib/chat-message-content";
 import { saveApprovedPlanToBrief } from "@/lib/plan-brief.server";
 import { getActivePermissionMode, getExecutionPermissionMode, VALID_PERMISSION_MODES } from "@/lib/permission-mode";
 import { processManager } from "@/lib/process-manager";
+import {
+  isNullableClaudeThinkingEffort,
+  normalizeClaudeThinkingEffortForModel,
+  VALID_CLAUDE_MODELS,
+} from "@/lib/claude-options";
 import type { ChatAttachment } from "@/types/chat-composer";
-import type { Task, PermissionMode, ClaudeModel } from "@/types/task";
+import type { Task, PermissionMode, ClaudeModel, ClaudeThinkingEffort } from "@/types/task";
 import {
   parseQuestionSpecs,
   serializeAnswersToProse,
   type QuestionSpec,
   type QuestionAnswers,
 } from "@/types/question-spec";
-const VALID_MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
 
 function normalizeAttachments(value: unknown): ChatAttachment[] {
   if (!Array.isArray(value)) return [];
@@ -64,6 +68,7 @@ export async function POST(
     permissionMode?: PermissionMode;
     executionPermissionMode?: PermissionMode | null;
     model?: ClaudeModel | null;
+    thinkingEffort?: ClaudeThinkingEffort | null;
   };
   try {
     body = await request.json();
@@ -71,7 +76,20 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { message, attachments: attachmentPayload, structuredAnswers, permissionMode, executionPermissionMode, model } = body;
+  const { message, attachments: attachmentPayload, structuredAnswers, permissionMode, executionPermissionMode, model, thinkingEffort } = body;
+
+  if ("thinkingEffort" in body && !isNullableClaudeThinkingEffort(thinkingEffort)) {
+    return NextResponse.json(
+      { error: 'thinkingEffort must be "auto", "low", "medium", "high", "xhigh", "max", or null' },
+      { status: 400 }
+    );
+  }
+  if ("model" in body && model !== null && model !== undefined && !VALID_CLAUDE_MODELS.includes(model)) {
+    return NextResponse.json(
+      { error: 'model must be "opus", "sonnet", "haiku", or null' },
+      { status: 400 }
+    );
+  }
 
   const db = getDb();
   const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Task | undefined;
@@ -164,7 +182,7 @@ export async function POST(
   // Title is set once at creation (via AI generation or fallback).
   // User replies are follow-ups, not new goals — don't overwrite the title.
 
-  // Persist permission settings + model on the task BEFORE spawning so the next
+  // Persist permission settings, model, and thinking effort on the task BEFORE spawning so the next
   // turn picks them up. In plan mode, picker changes stage the execution mode.
   if (normalizedReplyPermission) {
     const activeMode = getActivePermissionMode(
@@ -191,8 +209,20 @@ export async function POST(
   }
   if (model === null) {
     db.prepare("UPDATE tasks SET model = NULL WHERE id = ?").run(id);
-  } else if (model && VALID_MODELS.includes(model)) {
+  } else if (model && VALID_CLAUDE_MODELS.includes(model)) {
     db.prepare("UPDATE tasks SET model = ? WHERE id = ?").run(model, id);
+  }
+  if ("model" in body || "thinkingEffort" in body) {
+    const nextModel = "model" in body ? model ?? null : task.model ?? null;
+    const nextThinkingEffort = "thinkingEffort" in body
+      ? thinkingEffort ?? null
+      : task.thinkingEffort ?? null;
+    const normalizedThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, nextThinkingEffort);
+    if (normalizedThinkingEffort === null) {
+      db.prepare("UPDATE tasks SET thinkingEffort = NULL WHERE id = ?").run(id);
+    } else {
+      db.prepare("UPDATE tasks SET thinkingEffort = ? WHERE id = ?").run(normalizedThinkingEffort, id);
+    }
   }
 
   if (planApprovalAction && pendingQuestions.length > 0) {
@@ -296,7 +326,7 @@ export async function POST(
     },
   });
 
-  // The picker on the reply input persists permissionMode + model on the
+  // The picker on the reply input persists permissionMode + model + thinkingEffort on the
   // task itself, so spawnClaudeTurn just reads them from the DB. We always
   // spawn a fresh turn so picker changes are picked up immediately.
   try {
