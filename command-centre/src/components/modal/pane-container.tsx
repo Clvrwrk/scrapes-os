@@ -158,7 +158,7 @@ export function PaneContainer({
           Type a message below to start a new Claude conversation
         </div>
         <ReplyInput
-          taskId={parentTask?.id ?? "empty"}
+          taskId="empty"
           isVisible={true}
           needsInput={false}
           taskStatus="backlog"
