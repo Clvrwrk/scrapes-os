@@ -702,6 +702,78 @@ test("spawn omits --effort when thinking effort is auto", () => {
   }
 });
 
+test("spawn separates leading-dash prompts from CLI options", () => {
+  const workspaceDir = makeTempWorkspace();
+  const now = new Date().toISOString();
+  const task = {
+    id: "task-leading-dash-prompt",
+    title: "Leading dash prompt task",
+    description: "Verify prompt argument separation",
+    status: "running",
+    level: "task",
+    parentId: null,
+    projectSlug: null,
+    clientId: null,
+    needsInput: 0,
+    phaseNumber: null,
+    gsdStep: null,
+    cronJobSlug: null,
+    permissionMode: "bypassPermissions",
+    model: null,
+    thinkingEffort: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const db = createFakeDb(task);
+  const spawnCalls = [];
+  const prompt = "--- SESSION SNAPSHOT ---\nLoaded baseline context.\n--- END SNAPSHOT ---\n\nWrite a poem.";
+
+  try {
+    const { processManager } = loadProcessManagerModule({
+      "./db": { getDb: () => db },
+      "./event-bus": {
+        emitTaskEvent: () => {},
+        emitChatEvent: () => {},
+      },
+      "./config": {
+        getConfig: () => ({ agenticOsDir: workspaceDir }),
+        getClientAgenticOsDir: (clientId) => path.join(workspaceDir, "clients", clientId),
+      },
+      "./claude-parser": {
+        ClaudeOutputParser: class {
+          constructor() {}
+          feedLine() {}
+          get isCompleted() {
+            return false;
+          }
+        },
+      },
+      "./subprocess": {
+        spawnManagedTaskProcess: (command, args) => {
+          spawnCalls.push({ command, args: [...args] });
+          const proc = new EventEmitter();
+          proc.stdout = new Readable({ read() { this.push(null); } });
+          proc.stderr = new Readable({ read() { this.push(null); } });
+          proc.stdin = { end() {} };
+          proc.unref = () => {};
+          proc.pid = 12345;
+          return proc;
+        },
+        killChildProcessTree: () => {},
+      },
+    });
+
+    processManager.spawnClaudeTurn(task.id, prompt, workspaceDir, false, false);
+
+    const args = spawnCalls[0].args;
+    assert.deepEqual(args.slice(-2), ["--", prompt]);
+    assert.equal(args.indexOf(prompt), args.length - 1);
+  } finally {
+    delete global.__processManager;
+    cleanupTempWorkspace(workspaceDir);
+  }
+});
+
 test("ask mode bridge failure hint mentions a pending MCP server", () => {
   const { processManager } = loadProcessManagerModule({
     "./db": { getDb: () => createFakeDb({ id: "unused", status: "queued" }) },

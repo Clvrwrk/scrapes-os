@@ -2428,19 +2428,19 @@ function buildCronClaudeArgs(job, workspace) {
   if (!workspace?.clientId) {
     return [
       "-p",
-      prompt,
       "--model",
       model,
       "--output-format",
       "stream-json",
       "--verbose",
       "--dangerously-skip-permissions",
+      "--",
+      prompt,
     ];
   }
 
   return [
     "-p",
-    prompt,
     "--model",
     model,
     "--output-format",
@@ -2450,6 +2450,8 @@ function buildCronClaudeArgs(job, workspace) {
     "dontAsk",
     "--add-dir",
     workspace.workspaceDir,
+    "--",
+    prompt,
   ];
 }
 

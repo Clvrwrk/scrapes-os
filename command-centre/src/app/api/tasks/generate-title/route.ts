@@ -47,7 +47,7 @@ function generateTitle(description: string): Promise<string | null> {
 
     const prompt = `Summarise this task as a short label (max 6 words, lowercase). Write it like a human would say it casually — e.g. "skool post about pricing", "linkedin carousel for launch", "fix header alignment bug". Do NOT prefix with "Task:", "Write:", or any label. Return ONLY the summary, nothing else.\n\n${description.slice(0, 500)}`;
 
-    const proc = spawnUiProcess("claude", ["-p", prompt, "--output-format", "text"], {
+    const proc = spawnUiProcess("claude", ["-p", "--output-format", "text", "--", prompt], {
       stdio: ["pipe", "pipe", "pipe"],
       env: cleanEnv,
     });
