@@ -23,34 +23,18 @@ const os = require('os');
 const path = require('path');
 
 // Walk up from cwd to find an active .planning/ dir.
-// Supports the per-brief layout: projects/briefs/{slug}/.planning/
-// Falls back to cwd/.planning for legacy/workspace-root cases.
+// Supports the per-client layout: clients/{name}/.planning/
+// Also handles legacy root .planning/ for solo workspaces.
 function findPlanningDir(startCwd) {
-  // 1. cwd walk — if we're inside projects/briefs/{slug}/..., use that brief's .planning/
+  const home = os.homedir();
   let current = path.resolve(startCwd);
-  for (let depth = 0; depth < 20; depth += 1) {
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    if (path.basename(parent) === 'briefs' && path.basename(path.dirname(parent)) === 'projects') {
-      const candidate = path.join(current, '.planning');
-      if (fs.existsSync(candidate)) return candidate;
-      return null;
+  while (current !== path.dirname(current) && current !== home) {
+    const candidate = path.join(current, '.planning');
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
     }
-    current = parent;
+    current = path.dirname(current);
   }
-  // 2. Fallback: look for exactly one projects/briefs/*/.planning/ under cwd
-  try {
-    const briefsDir = path.join(startCwd, 'projects', 'briefs');
-    if (fs.existsSync(briefsDir)) {
-      const active = [];
-      for (const entry of fs.readdirSync(briefsDir, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const p = path.join(briefsDir, entry.name, '.planning');
-        if (fs.existsSync(p)) active.push(p);
-      }
-      if (active.length === 1) return active[0];
-    }
-  } catch { /* ignore */ }
   return null;
 }
 

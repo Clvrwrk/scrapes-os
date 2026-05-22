@@ -67,61 +67,39 @@ created: 2026-03-24
 
 For complex multi-phase work with dependencies and milestones.
 
-GSD uses a `.planning/` folder to store its roadmap, phase plans, and verification reports. This folder lives at the root of whatever workspace you're in — so if you're working in `clients/client-one/`, it's `clients/client-one/.planning/`. If you're working from the root, it's `agentic-os/.planning/`.
+GSD uses a `.planning/` folder at the root of each workspace to store its roadmap, requirements, phase plans, and state. For client work, this lives inside the client folder — `clients/client-name/.planning/`. The root `agentic-os/` folder should never have `.planning/`; keeping it clean is what allows multiple clients to run GSD projects in parallel.
 
-Your project's outputs and brief still live in `projects/briefs/{project-name}/`. The `.planning/` folder is GSD's working space — it links back to your project.
+Your project's outputs and brief live in `projects/briefs/{project-name}/` inside the same workspace.
 
 ```
-projects/briefs/website-rebuild/     <- project folder (your stuff)
-├── brief.md                         <- project brief (links to .planning/)
-├── 2026-03-24_homepage-copy.md      <- outputs still go in the project folder
-└── 2026-03-25_sitemap.excalidraw
-
-.planning/                           <- GSD working space (at workspace root)
-├── PROJECT.md
-├── ROADMAP.md
-├── STATE.md
-├── config.json
-├── research/
-├── intel/
-└── phases/
-    ├── 01-foundation/
-    │   ├── PLAN.md
-    │   └── VERIFICATION.md
-    └── 02-build/
+clients/website-client/              <- client workspace
+├── .planning/                       <- GSD working space (at client root)
+│   ├── PROJECT.md
+│   ├── config.json
+│   ├── REQUIREMENTS.md
+│   ├── ROADMAP.md
+│   ├── STATE.md
+│   └── phases/
+│       ├── 01-foundation/
+│       └── 02-build/
+└── projects/briefs/website-rebuild/ <- project outputs
+    ├── brief.md
+    ├── 2026-03-24_homepage-copy.md
+    └── 2026-03-25_sitemap.excalidraw
 ```
 
-### One GSD project at a time
+### Multiple GSD projects in parallel
 
-Each workspace (root or client folder) can run one GSD project at a time, because `.planning/` is shared. This means:
+Each client workspace runs its own independent GSD project:
 
-- **Solo user:** one GSD project at a time in your root folder
-- **Multi-client:** each client can have its own GSD project running simultaneously (they each have their own `.planning/`)
-- **Need two GSD projects for the same client?** Finish one first, or use separate client workspaces
+- **`clients/abc/`** → active GSD project at `clients/abc/.planning/`
+- **`clients/xyz/`** → active GSD project at `clients/xyz/.planning/`
 
-If you try to start a new GSD project while one is already active, Claude will offer to archive the existing one first.
+To start a GSD project for a client, select that client in the command-centre and ask Claude to run `/gsd:new-project`. GSD creates `.planning/` in the client workspace root automatically.
 
 ### Archiving a completed GSD project
 
-When you're done with a GSD project, run `/archive-gsd`. This:
-
-1. Moves `.planning/` into your project folder as `planning-archive/`
-2. Updates the brief's status to `complete`
-3. Shows you where everything was moved
-4. Frees up the workspace for a new GSD project
-
-The archive preserves the full roadmap, phase plans, and verification reports alongside your project's outputs and brief — so you can always go back and see how the project was planned and executed.
-
-```
-projects/briefs/website-rebuild/     <- after archiving
-├── brief.md                         <- status: complete
-├── 2026-03-24_homepage-copy.md
-├── 2026-03-25_sitemap.excalidraw
-└── planning-archive/                <- moved from .planning/
-    ├── PROJECT.md
-    ├── ROADMAP.md
-    └── phases/
-```
+When you're done with a GSD project, run `/archive-gsd`. This updates the brief's status to `complete` and leaves `.planning/` in place as a historical record. Start a new GSD project any time with `/gsd:new-project`.
 
 ---
 
@@ -137,20 +115,24 @@ projects/
     ├── kanban-dashboard/           <- Level 2 planned project (has brief.md)
     │   ├── brief.md
     │   └── 2026-03-24_architecture.md
-    ├── q2-product-launch/          <- Level 2 planned project
-    │   ├── brief.md
-    │   ├── 2026-03-24_landing-page.md
-    │   ├── 2026-03-25_email-sequence.md
-    │   └── 2026-03-22_competitor-scan.md
-    └── website-rebuild/            <- Level 3 GSD project (has brief.md, links to .planning/)
+    └── q2-product-launch/          <- Level 2 planned project
         ├── brief.md
-        ├── 2026-03-24_homepage-copy.md
-        └── 2026-03-25_sitemap.excalidraw
+        ├── 2026-03-24_landing-page.md
+        └── 2026-03-25_email-sequence.md
 
-.planning/                          <- GSD only (Level 3), at project root — one at a time
-├── PROJECT.md
-├── ROADMAP.md
-└── phases/
+clients/
+└── website-client/                 <- Level 3 GSD project lives inside a client workspace
+    ├── .planning/                  <- GSD working space (at client root, never at agentic-os root)
+    │   ├── PROJECT.md
+    │   ├── config.json
+    │   ├── REQUIREMENTS.md
+    │   ├── ROADMAP.md
+    │   ├── STATE.md
+    │   └── phases/
+    └── projects/briefs/
+        └── website-rebuild/        <- project outputs
+            ├── brief.md
+            └── 2026-03-24_homepage-copy.md
 ```
 
 **How to tell them apart:**
