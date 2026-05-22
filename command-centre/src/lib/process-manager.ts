@@ -1261,11 +1261,12 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     const model = taskRow?.model || null;
     const thinkingEffort = taskRow?.thinkingEffort || null;
 
-    // Build args
+    // Build args. Keep every option before "--" so prompts that start with
+    // hyphens are treated as prompt text instead of CLI flags.
     const args = [
       "--output-format", "stream-json",
       "--verbose",
-      "-p", prompt,
+      "-p",
       "--permission-mode", permissionMode,
     ];
 
@@ -1357,6 +1358,8 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
         console.warn(`[process-manager] No claudeSessionId for ${taskId.slice(0, 8)}, falling back to --continue`);
       }
     }
+
+    args.push("--", prompt);
 
     console.log(`[process-manager] Spawning${isContinuation ? " (resume)" : ""}: claude -p "${prompt.slice(0, 80)}..."`);
     console.log(`[process-manager] CWD: ${cwd}`);

@@ -81,11 +81,12 @@ test("runClaudeTextPrompt uses spawnUiProcess and returns trimmed stdout", async
   assert.equal(spawnCalls[0].command, "claude");
   assert.deepEqual(spawnCalls[0].args, [
     "-p",
-    "Cluster these tasks",
     "--output-format",
     "text",
     "--model",
     "haiku",
+    "--",
+    "Cluster these tasks",
   ]);
   assert.equal(fakeChild.stdin.ended, true);
 });

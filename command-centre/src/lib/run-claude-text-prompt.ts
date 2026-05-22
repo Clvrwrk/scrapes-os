@@ -15,10 +15,11 @@ export async function runClaudeTextPrompt(
     const cleanEnv = { ...process.env };
     delete cleanEnv.CLAUDECODE;
 
-    const args = ["-p", prompt, "--output-format", "text"];
+    const args = ["-p", "--output-format", "text"];
     if (model) {
       args.push("--model", model);
     }
+    args.push("--", prompt);
 
     const proc = spawnUiProcess("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],

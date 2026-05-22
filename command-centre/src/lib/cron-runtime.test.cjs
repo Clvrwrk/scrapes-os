@@ -210,13 +210,14 @@ test("buildCronClaudeArgs keeps root cron runs on the broad bypass path", () => 
 
   assert.deepEqual(args, [
     "-p",
-    "Run the root cron job",
     "--model",
     "sonnet",
     "--output-format",
     "stream-json",
     "--verbose",
     "--dangerously-skip-permissions",
+    "--",
+    "Run the root cron job",
   ]);
 });
 
@@ -235,7 +236,6 @@ test("buildCronClaudeArgs scopes client cron runs to dontAsk and --add-dir witho
 
   assert.deepEqual(args, [
     "-p",
-    "Run the client cron job",
     "--model",
     "sonnet",
     "--output-format",
@@ -245,6 +245,8 @@ test("buildCronClaudeArgs scopes client cron runs to dontAsk and --add-dir witho
     "dontAsk",
     "--add-dir",
     workspaceDir,
+    "--",
+    "Run the client cron job",
   ]);
   assert.equal(args.includes("--dangerously-skip-permissions"), false);
 });
