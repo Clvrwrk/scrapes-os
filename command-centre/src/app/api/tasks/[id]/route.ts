@@ -3,6 +3,11 @@ import { getDb } from "@/lib/db";
 import { emitTaskEvent } from "@/lib/event-bus";
 import { getActivePermissionMode, getExecutionPermissionMode } from "@/lib/permission-mode";
 import { processManager } from "@/lib/process-manager";
+import {
+  isNullableClaudeThinkingEffort,
+  normalizeClaudeThinkingEffortForModel,
+  VALID_CLAUDE_MODELS,
+} from "@/lib/claude-options";
 import type { Task, TaskUpdateInput } from "@/types/task";
 import type Database from "better-sqlite3";
 
@@ -189,8 +194,8 @@ function autoQueueNextPhase(db: Database.Database, completedChild: Task, now: st
   const nextTitle = `Phase ${nextPhase}: discuss`;
 
   db.prepare(
-    `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model)
-     VALUES (?, ?, ?, 'queued', 'gsd', ?, ?, ?, ?, ?, ?, 'discuss', ?, ?, ?)`
+    `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model, thinkingEffort)
+     VALUES (?, ?, ?, 'queued', 'gsd', ?, ?, ?, ?, ?, ?, 'discuss', ?, ?, ?, ?)`
   ).run(
     nextPhaseId,
     nextTitle,
@@ -204,6 +209,7 @@ function autoQueueNextPhase(db: Database.Database, completedChild: Task, now: st
     parent.permissionMode || "bypassPermissions",
     parent.executionPermissionMode || parent.permissionMode || "bypassPermissions",
     parent.model ?? null,
+    parent.thinkingEffort ?? null,
   );
 
   const newPhaseTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(nextPhaseId) as Task;
@@ -260,6 +266,27 @@ export async function PATCH(
     const body = (await request.json()) as TaskUpdateInput;
     const now = new Date().toISOString();
 
+    if ("thinkingEffort" in body && !isNullableClaudeThinkingEffort(body.thinkingEffort)) {
+      return NextResponse.json(
+        { error: 'thinkingEffort must be "auto", "low", "medium", "high", "xhigh", "max", or null' },
+        { status: 400 }
+      );
+    }
+    if ("model" in body && body.model !== null && body.model !== undefined && !VALID_CLAUDE_MODELS.includes(body.model)) {
+      return NextResponse.json(
+        { error: 'model must be "opus", "sonnet", "haiku", or null' },
+        { status: 400 }
+      );
+    }
+
+    if ("model" in body || "thinkingEffort" in body) {
+      const nextModel = "model" in body ? body.model ?? null : existing.model ?? null;
+      const nextThinkingEffort = "thinkingEffort" in body
+        ? body.thinkingEffort ?? null
+        : existing.thinkingEffort ?? null;
+      body.thinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, nextThinkingEffort);
+    }
+
     if ("permissionMode" in body) {
       const normalizedPermission = getActivePermissionMode(
         body.permissionMode ?? existing.permissionMode,
@@ -308,6 +335,7 @@ export async function PATCH(
       "permissionMode",
       "executionPermissionMode",
       "model",
+      "thinkingEffort",
       "tag",
       "pinnedAt",
     ];

@@ -754,6 +754,7 @@ export function TaskModal() {
                             initialPermissionMode={task.permissionMode ?? "bypassPermissions"}
                             initialExecutionPermissionMode={task.executionPermissionMode ?? null}
                             initialModel={task.model ?? null}
+                            initialThinkingEffort={task.thinkingEffort ?? null}
                             onOptimisticReply={handleOptimisticReply}
                             projectSlug={task.projectSlug}
                             hideTasksPopover={task.level === "task"}

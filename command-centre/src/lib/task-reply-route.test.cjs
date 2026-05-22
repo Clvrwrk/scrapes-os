@@ -4,6 +4,17 @@ const test = require("node:test");
 
 const { loadTsModule } = require("./test-utils/load-ts-module.cjs");
 
+const claudeOptionsStub = {
+  VALID_CLAUDE_MODELS: ["opus", "sonnet", "haiku"],
+  isNullableClaudeThinkingEffort: (value) => value === null || ["auto", "low", "medium", "high", "xhigh", "max"].includes(value),
+  normalizeClaudeThinkingEffortForModel: (model, effort) => {
+    if (effort == null) return null;
+    if (model === "haiku") return "auto";
+    if (model === "sonnet" && effort === "xhigh") return "high";
+    return effort;
+  },
+};
+
 function createNextServerStub() {
   return {
     NextRequest: class {},
@@ -131,6 +142,7 @@ test("task reply route composes attachment paths into the Claude message and cle
         getExecutionPermissionMode: (requested, fallback) => requested ?? fallback,
         VALID_PERMISSION_MODES: ["bypassPermissions", "default", "plan"],
       },
+      "@/lib/claude-options": claudeOptionsStub,
       "@/lib/process-manager": {
         processManager: {
           async replyToTask(id, message) {

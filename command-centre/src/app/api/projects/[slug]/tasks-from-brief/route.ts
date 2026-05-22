@@ -92,11 +92,12 @@ export async function POST(
       "bypassPermissions",
     );
     const inheritedModel = parentTask?.model ?? null;
+    const inheritedThinkingEffort = parentTask?.thinkingEffort ?? null;
 
     // Create subtasks
     const insertStmt = db.prepare(
-      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, dependsOnTaskIds)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, thinkingEffort, dependsOnTaskIds)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const minOrderRow = db
@@ -140,6 +141,7 @@ export async function POST(
         permissionMode: inheritedPermissionMode,
         executionPermissionMode: inheritedExecutionMode,
         model: inheritedModel,
+        thinkingEffort: inheritedThinkingEffort,
         lastReplyAt: null,
         goalGroup: null,
         tag: null,
@@ -151,7 +153,7 @@ export async function POST(
         task.id, task.title, task.description, task.status, task.level,
         task.parentId, task.projectSlug, task.columnOrder, task.createdAt,
         task.updatedAt, null, null, null, null, null, null, null,
-        task.clientId, 0, null, null, null, task.permissionMode, task.executionPermissionMode, task.model, null
+        task.clientId, 0, null, null, null, task.permissionMode, task.executionPermissionMode, task.model, task.thinkingEffort, null
       );
 
       emitTaskEvent({

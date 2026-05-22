@@ -3,9 +3,12 @@ import { getDb } from "@/lib/db";
 import { emitTaskEvent } from "@/lib/event-bus";
 import { assertValidClientId } from "@/lib/clients";
 import { getActivePermissionMode, getExecutionPermissionMode } from "@/lib/permission-mode";
-import type { ClaudeModel, Task, TaskCreateInput } from "@/types/task";
-
-const VALID_MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
+import {
+  isNullableClaudeThinkingEffort,
+  normalizeClaudeThinkingEffortForModel,
+  VALID_CLAUDE_MODELS,
+} from "@/lib/claude-options";
+import type { Task, TaskCreateInput } from "@/types/task";
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate input
-    const { title, description, level, projectSlug: bodyProjectSlug, clientId: bodyClientId, parentId: bodyParentId, phaseNumber: bodyPhaseNumber, gsdStep: bodyGsdStep, cronJobSlug: bodyCronJobSlug, permissionMode: bodyPermissionMode, executionPermissionMode: bodyExecutionPermissionMode, status: bodyStatus, dependsOnTaskIds: bodyDependsOnTaskIds, model: bodyModel } = body as TaskCreateInput & { cronJobSlug?: string; status?: string; dependsOnTaskIds?: string[] };
+    const { title, description, level, projectSlug: bodyProjectSlug, clientId: bodyClientId, parentId: bodyParentId, phaseNumber: bodyPhaseNumber, gsdStep: bodyGsdStep, cronJobSlug: bodyCronJobSlug, permissionMode: bodyPermissionMode, executionPermissionMode: bodyExecutionPermissionMode, status: bodyStatus, dependsOnTaskIds: bodyDependsOnTaskIds, model: bodyModel, thinkingEffort: bodyThinkingEffort } = body as TaskCreateInput & { cronJobSlug?: string; status?: string; dependsOnTaskIds?: string[] };
     if (!title || typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json(
         { error: "title is required and must be a non-empty string" },
@@ -103,9 +106,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (bodyModel !== undefined && bodyModel !== null && !VALID_MODELS.includes(bodyModel)) {
+    if (bodyModel !== undefined && bodyModel !== null && !VALID_CLAUDE_MODELS.includes(bodyModel)) {
       return NextResponse.json(
         { error: 'model must be "opus", "sonnet", "haiku", or null' },
+        { status: 400 }
+      );
+    }
+    if (bodyThinkingEffort !== undefined && !isNullableClaudeThinkingEffort(bodyThinkingEffort)) {
+      return NextResponse.json(
+        { error: 'thinkingEffort must be "auto", "low", "medium", "high", "xhigh", "max", or null' },
         { status: 400 }
       );
     }
@@ -141,6 +150,8 @@ export async function POST(request: NextRequest) {
       bodyExecutionPermissionMode ?? requestedPermissionMode,
       "bypassPermissions",
     );
+    const model = bodyModel ?? null;
+    const thinkingEffort = normalizeClaudeThinkingEffortForModel(model, bodyThinkingEffort ?? null);
 
     const task: Task = {
       id: crypto.randomUUID(),
@@ -169,7 +180,8 @@ export async function POST(request: NextRequest) {
       claudeSessionId: null,
       permissionMode,
       executionPermissionMode,
-      model: bodyModel ?? null,
+      model,
+      thinkingEffort,
       lastReplyAt: null,
       goalGroup: null,
       tag: null,
@@ -181,8 +193,8 @@ export async function POST(request: NextRequest) {
     };
 
     db.prepare(
-      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, dependsOnTaskIds)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, costUsd, tokensUsed, durationMs, activityLabel, errorMessage, startedAt, completedAt, clientId, needsInput, phaseNumber, gsdStep, cronJobSlug, permissionMode, executionPermissionMode, model, thinkingEffort, dependsOnTaskIds)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       task.id,
       task.title,
@@ -209,6 +221,7 @@ export async function POST(request: NextRequest) {
       task.permissionMode,
       task.executionPermissionMode,
       task.model,
+      task.thinkingEffort,
       task.dependsOnTaskIds ? JSON.stringify(task.dependsOnTaskIds) : null
     );
 

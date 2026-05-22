@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { X, ArrowUp, ChevronDown, Paperclip, Trash2 } from "lucide-react";
-import type { TaskLevel, PermissionMode, ClaudeModel } from "@/types/task";
+import type { TaskLevel, PermissionMode, ClaudeModel, ClaudeThinkingEffort } from "@/types/task";
 import type { ChatPastedBlock } from "@/types/chat-composer";
 import type { GoalDraftAttachment, GoalDraftPayload } from "@/types/goal-draft";
 import { useTaskStore } from "@/store/task-store";
@@ -12,6 +12,7 @@ import type { TagItem } from "@/components/shared/slash-command-menu";
 import type { SlashCommand } from "@/lib/slash-commands";
 import { HighlightMirror } from "@/components/modal/reply-input";
 import { ModelPicker } from "@/components/shared/model-picker";
+import { ThinkingEffortPicker } from "@/components/shared/thinking-effort-picker";
 import { PermissionPicker } from "@/components/shared/permission-picker";
 import { TagPicker } from "@/components/shared/tag-picker";
 import { ComposerAssetTray } from "@/components/shared/composer-asset-tray";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/chat-attachment-policy";
 import { expandComposerPastedBlocks } from "@/lib/chat-message-content";
 import { buildGoalDraftSnapshot, hasGoalDraftContent } from "@/lib/goal-drafts";
+import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
 import {
   insertPastedTextAtSelection,
   removePendingPastedText,
@@ -99,6 +101,7 @@ export function NewGoalPanel({
   const [level, setLevel] = useState<TaskLevel>(draft?.level ?? "task");
   const [showLevelMenu, setShowLevelMenu] = useState(false);
   const [model, setModel] = useState<ClaudeModel | null>(draft?.model ?? null);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(draft?.thinkingEffort ?? "auto");
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(draft?.permissionMode ?? "bypassPermissions");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -135,6 +138,11 @@ export function NewGoalPanel({
   const clients = useClientStore((s) => s.clients);
   const rootName = useClientStore((s) => s.rootName);
   const hasMaterializedDraft = draftId !== null;
+
+  const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    setModel(nextModel);
+    setThinkingEffort((current) => normalizeClaudeThinkingEffortForModel(nextModel, current ?? "auto"));
+  }, []);
 
   // Fetch prompt tags
   useEffect(() => {
@@ -228,6 +236,7 @@ export function NewGoalPanel({
       level,
       permissionMode,
       model,
+      thinkingEffort,
       tag: selectedTag,
       pastedBlocks,
       createdAt: nextCreatedAt,
@@ -242,6 +251,7 @@ export function NewGoalPanel({
     permissionMode,
     selectedClientId,
     selectedTag,
+    thinkingEffort,
     title,
   ]);
 
@@ -280,6 +290,7 @@ export function NewGoalPanel({
     selectedClientId,
     selectedTag,
     storeSelectedClientId,
+    thinkingEffort,
     title,
   ]);
 
@@ -308,13 +319,13 @@ export function NewGoalPanel({
         } catch { /* non-critical */ }
       }
 
-      await createTask(goalTitle, fullDescription, taskLevel, taskProjectSlug, undefined, permissionMode, undefined, selectedClientId, model);
+      await createTask(goalTitle, fullDescription, taskLevel, taskProjectSlug, undefined, permissionMode, undefined, selectedClientId, model, thinkingEffort);
 
       const tasks = useTaskStore.getState().tasks;
       const created = tasks.find((t) => t.title === goalTitle && t.description === fullDescription);
       return created?.id ?? null;
     },
-    [createTask, model, permissionMode, selectedClientId]
+    [createTask, model, permissionMode, selectedClientId, thinkingEffort]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -1033,7 +1044,8 @@ export function NewGoalPanel({
           <Trash2 size={14} />
         </button>
 
-        <ModelPicker value={model} onChange={setModel} />
+        <ModelPicker value={model} onChange={handleModelChange} />
+        <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={setThinkingEffort} />
         <PermissionPicker value={permissionMode} onChange={setPermissionMode} />
         <TagPicker value={selectedTag} onChange={setSelectedTag} />
 

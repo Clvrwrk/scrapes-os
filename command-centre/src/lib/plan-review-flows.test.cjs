@@ -12,6 +12,18 @@ const approvalRequestFormatSourcePath = path.resolve(projectRoot, "lib", "approv
 const tasksCollectionRouteSourcePath = path.resolve(projectRoot, "app", "api", "tasks", "route.ts");
 const taskRouteSourcePath = path.resolve(projectRoot, "app", "api", "tasks", "[id]", "route.ts");
 const replyRouteSourcePath = path.resolve(projectRoot, "app", "api", "tasks", "[id]", "reply", "route.ts");
+const claudeOptionsStub = {
+  VALID_CLAUDE_MODELS: ["opus", "sonnet", "haiku"],
+  VALID_CLAUDE_THINKING_EFFORTS: ["auto", "low", "medium", "high", "xhigh", "max"],
+  isClaudeThinkingEffort: (value) => ["auto", "low", "medium", "high", "xhigh", "max"].includes(value),
+  isNullableClaudeThinkingEffort: (value) => value === null || ["auto", "low", "medium", "high", "xhigh", "max"].includes(value),
+  normalizeClaudeThinkingEffortForModel: (model, effort) => {
+    if (effort == null) return null;
+    if (model === "haiku") return "auto";
+    if (model === "sonnet" && effort === "xhigh") return "high";
+    return effort;
+  },
+};
 const approvalDecisionRouteSourcePath = path.resolve(
   projectRoot,
   "app",
@@ -149,6 +161,7 @@ function createCreateTaskRouteDb() {
               permissionMode: args[22],
               executionPermissionMode: args[23],
               model: args[24],
+              thinkingEffort: args[25],
             };
             return { changes: 1 };
           }
@@ -207,6 +220,16 @@ function createReplyRouteDb(task, pendingQuestionSpec = null) {
 
           if (normalized === "UPDATE tasks SET model = ? WHERE id = ?") {
             state.task.model = args[0];
+            return { changes: 1 };
+          }
+
+          if (normalized === "UPDATE tasks SET thinkingEffort = NULL WHERE id = ?") {
+            state.task.thinkingEffort = null;
+            return { changes: 1 };
+          }
+
+          if (normalized === "UPDATE tasks SET thinkingEffort = ? WHERE id = ?") {
+            state.task.thinkingEffort = args[0];
             return { changes: 1 };
           }
 
@@ -554,7 +577,7 @@ test("getApprovalRequestDisplay keeps a compact summary and a full Bash command"
   assert.match(display.detailText, /--flag gamma/);
 });
 
-test("POST /api/tasks persists the selected model on first create", async () => {
+test("POST /api/tasks normalizes thinking effort for the selected model on first create", async () => {
   const db = createCreateTaskRouteDb();
   const nextServer = createNextServerStub();
   const permissionMode = loadTsModule(permissionModeSourcePath, {
@@ -566,6 +589,7 @@ test("POST /api/tasks persists the selected model on first create", async () => 
     "@/lib/clients": { assertValidClientId: (value) => value ?? null },
     "@/lib/event-bus": { emitTaskEvent: () => {} },
     "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
     "@/lib/process-manager": { processManager: { hasActiveSession: () => false, killSession: async () => {} } },
   });
 
@@ -575,15 +599,48 @@ test("POST /api/tasks persists the selected model on first create", async () => 
       description: "Keep haiku selected",
       level: "task",
       model: "haiku",
+      thinkingEffort: "high",
     }),
   });
 
   assert.equal(response.status, 201);
   assert.equal(response.body.model, "haiku");
+  assert.equal(response.body.thinkingEffort, "auto");
   assert.equal(db.state.inserted.model, "haiku");
+  assert.equal(db.state.inserted.thinkingEffort, "auto");
 });
 
-test("PATCH /api/tasks/[id] persists model changes and exits plan mode cleanly", async () => {
+test("POST /api/tasks rejects invalid thinking effort", async () => {
+  const db = createCreateTaskRouteDb();
+  const nextServer = createNextServerStub();
+  const permissionMode = loadTsModule(permissionModeSourcePath, {
+    "@/types/task": {},
+  });
+  const route = loadTsModule(tasksCollectionRouteSourcePath, {
+    "next/server": nextServer,
+    "@/lib/db": { getDb: () => db },
+    "@/lib/clients": { assertValidClientId: (value) => value ?? null },
+    "@/lib/event-bus": { emitTaskEvent: () => {} },
+    "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
+    "@/lib/process-manager": { processManager: { hasActiveSession: () => false, killSession: async () => {} } },
+  });
+
+  const response = await route.POST({
+    json: async () => ({
+      title: "Test task",
+      description: "Invalid effort",
+      level: "task",
+      thinkingEffort: "turbo",
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.match(response.body.error, /thinkingEffort/);
+  assert.equal(db.state.inserted, null);
+});
+
+test("PATCH /api/tasks/[id] normalizes thinking effort when model changes and exits plan mode cleanly", async () => {
   const db = createPatchRouteDb({
     id: "task-patch",
     status: "review",
@@ -601,11 +658,12 @@ test("PATCH /api/tasks/[id] persists model changes and exits plan mode cleanly",
     "@/lib/db": { getDb: () => db },
     "@/lib/event-bus": { emitTaskEvent: () => {} },
     "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
     "@/lib/process-manager": { processManager: { hasActiveSession: () => false, killSession: async () => {} } },
   });
 
   const response = await route.PATCH(
-    { json: async () => ({ permissionMode: "default", model: "haiku" }) },
+    { json: async () => ({ permissionMode: "default", model: "haiku", thinkingEffort: "high" }) },
     { params: Promise.resolve({ id: "task-patch" }) },
   );
 
@@ -613,6 +671,38 @@ test("PATCH /api/tasks/[id] persists model changes and exits plan mode cleanly",
   assert.equal(db.state.task.permissionMode, "default");
   assert.equal(db.state.task.executionPermissionMode, "default");
   assert.equal(db.state.task.model, "haiku");
+  assert.equal(db.state.task.thinkingEffort, "auto");
+});
+
+test("PATCH /api/tasks/[id] rejects invalid thinking effort", async () => {
+  const db = createPatchRouteDb({
+    id: "task-invalid-effort",
+    status: "review",
+    permissionMode: "default",
+    executionPermissionMode: "default",
+    thinkingEffort: null,
+    updatedAt: "2026-04-17T00:00:00.000Z",
+  });
+  const nextServer = createNextServerStub();
+  const permissionMode = loadTsModule(permissionModeSourcePath, {
+    "@/types/task": {},
+  });
+  const route = loadTsModule(taskRouteSourcePath, {
+    "next/server": nextServer,
+    "@/lib/db": { getDb: () => db },
+    "@/lib/event-bus": { emitTaskEvent: () => {} },
+    "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
+    "@/lib/process-manager": { processManager: { hasActiveSession: () => false, killSession: async () => {} } },
+  });
+
+  const response = await route.PATCH(
+    { json: async () => ({ thinkingEffort: "turbo" }) },
+    { params: Promise.resolve({ id: "task-invalid-effort" }) },
+  );
+
+  assert.equal(response.status, 400);
+  assert.match(response.body.error, /thinkingEffort/);
 });
 
 test("POST /api/tasks/[id]/approval-requests/[requestId] clears needsInput after approval", async () => {
@@ -650,13 +740,14 @@ test("POST /api/tasks/[id]/approval-requests/[requestId] clears needsInput after
   assert.equal(response.body.task.needsInput, false);
 });
 
-test("POST /api/tasks/[id]/reply keeps model changes and resumes the task", async () => {
+test("POST /api/tasks/[id]/reply normalizes thinking effort with model changes and resumes the task", async () => {
   const db = createReplyRouteDb({
     id: "task-reply-model",
     status: "review",
     permissionMode: "default",
     executionPermissionMode: "default",
     model: null,
+    thinkingEffort: null,
     needsInput: 1,
     updatedAt: "2026-04-17T00:00:00.000Z",
     lastReplyAt: null,
@@ -680,6 +771,7 @@ test("POST /api/tasks/[id]/reply keeps model changes and resumes the task", asyn
     "@/lib/event-bus": { emitTaskEvent: () => {} },
     "@/lib/plan-brief.server": { saveApprovedPlanToBrief: () => null },
     "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
     "@/lib/process-manager": {
       processManager: {
         replyToTask: async (_taskId, message) => {
@@ -696,14 +788,68 @@ test("POST /api/tasks/[id]/reply keeps model changes and resumes the task", asyn
   });
 
   const response = await route.POST(
-    { json: async () => ({ message: "Keep going", model: "haiku" }) },
+    { json: async () => ({ message: "Keep going", model: "haiku", thinkingEffort: "high" }) },
     { params: Promise.resolve({ id: "task-reply-model" }) },
   );
 
   assert.equal(response.status, 200);
   assert.equal(db.state.task.model, "haiku");
+  assert.equal(db.state.task.thinkingEffort, "auto");
   assert.equal(db.state.task.status, "running");
   assert.equal(replyMessage, "Keep going");
+});
+
+test("POST /api/tasks/[id]/reply rejects invalid thinking effort", async () => {
+  const db = createReplyRouteDb({
+    id: "task-reply-invalid-effort",
+    status: "review",
+    permissionMode: "default",
+    executionPermissionMode: "default",
+    model: null,
+    thinkingEffort: null,
+    needsInput: 1,
+    updatedAt: "2026-04-17T00:00:00.000Z",
+    lastReplyAt: null,
+    startedAt: null,
+    errorMessage: null,
+  });
+  const nextServer = createNextServerStub();
+  const permissionMode = loadTsModule(permissionModeSourcePath, {
+    "@/types/task": {},
+  });
+  const route = loadTsModule(replyRouteSourcePath, {
+    "next/server": nextServer,
+    "@/lib/db": { getDb: () => db },
+    "@/lib/chat-attachment-service": {
+      cleanupChatAttachmentStorage: () => {},
+      copyChatAttachmentsToSent: () => [],
+      deleteSourceDraftAttachments: () => {},
+    },
+    "@/lib/chat-message-content": { composeMessageWithAttachments: (message) => message },
+    "@/lib/event-bus": { emitTaskEvent: () => {} },
+    "@/lib/plan-brief.server": { saveApprovedPlanToBrief: () => null },
+    "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
+    "@/lib/process-manager": {
+      processManager: {
+        replyToTask: async () => true,
+        spawnContinueTurn: async () => {},
+      },
+    },
+    "@/types/question-spec": {
+      parseQuestionSpecs: (spec) => spec,
+      serializeAnswersToProse: () => "",
+    },
+  });
+
+  const response = await route.POST(
+    { json: async () => ({ message: "Keep going", thinkingEffort: "turbo" }) },
+    { params: Promise.resolve({ id: "task-reply-invalid-effort" }) },
+  );
+
+  assert.equal(response.status, 400);
+  assert.match(response.body.error, /thinkingEffort/);
+  assert.equal(db.state.logs.length, 0);
 });
 
 test("POST /api/tasks/[id]/reply cancel exits plan mode and restores the staged execution mode", async () => {
@@ -747,6 +893,7 @@ test("POST /api/tasks/[id]/reply cancel exits plan mode and restores the staged 
     "@/lib/event-bus": { emitTaskEvent: () => {} },
     "@/lib/plan-brief.server": { saveApprovedPlanToBrief: () => null },
     "@/lib/permission-mode": permissionMode,
+    "@/lib/claude-options": claudeOptionsStub,
     "@/lib/process-manager": {
       processManager: {
         replyToTask: async () => true,

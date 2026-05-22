@@ -134,15 +134,15 @@ export async function POST(request: NextRequest) {
                 "bypassPermissions",
               );
               db.prepare(
-                `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model)
-                 VALUES (?, ?, ?, ?, 'task', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
+                `INSERT INTO tasks (id, title, description, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, phaseNumber, gsdStep, permissionMode, executionPermissionMode, model, thinkingEffort)
+                 VALUES (?, ?, ?, ?, 'task', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`
               ).run(
                 taskId, title,
                 `Run /gsd:${step === "execute" ? "execute-phase" : step === "verify" ? "verify-work" : step === "plan" ? "plan-phase" : "discuss-phase"} for Phase ${phase.number}`,
                 status,
                 parentTask!.id, parentTask!.projectSlug, columnOrder,
                 now, now, parentTask!.clientId,
-                phase.number, step, inheritedPermissionMode, inheritedExecutionMode, parentTask!.model ?? null,
+                phase.number, step, inheritedPermissionMode, inheritedExecutionMode, parentTask!.model ?? null, parentTask!.thinkingEffort ?? null,
               );
 
               const childTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Task;
@@ -196,8 +196,8 @@ export async function POST(request: NextRequest) {
 
             const taskId = crypto.randomUUID();
             db.prepare(
-              `INSERT INTO tasks (id, title, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, permissionMode, executionPermissionMode, model)
-               VALUES (?, ?, 'backlog', 'task', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+              `INSERT INTO tasks (id, title, status, level, parentId, projectSlug, columnOrder, createdAt, updatedAt, clientId, needsInput, permissionMode, executionPermissionMode, model, thinkingEffort)
+               VALUES (?, ?, 'backlog', 'task', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
             ).run(
               taskId, title,
               parentTask.id, parentTask.projectSlug, order++,
@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
               getActivePermissionMode(parentTask.permissionMode ?? "bypassPermissions", "bypassPermissions"),
               getExecutionPermissionMode(parentTask.executionPermissionMode ?? parentTask.permissionMode, "bypassPermissions"),
               parentTask.model ?? null,
+              parentTask.thinkingEffort ?? null,
             );
           }
         }

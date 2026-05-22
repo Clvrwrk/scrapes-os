@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Conversation, Message, AgentDecision, ChatEvent } from "@/types/chat";
-import type { ClaudeModel, PermissionMode } from "@/types/task";
+import type { ClaudeModel, ClaudeThinkingEffort, PermissionMode } from "@/types/task";
 import { readApiError } from "@/lib/api-error";
 import type { ChatAttachment } from "@/types/chat-composer";
 import { clearChatDraft } from "@/lib/chat-drafts";
@@ -24,7 +24,7 @@ interface ChatState {
 
   // Actions
   loadOrCreateConversation: (clientId?: string | null) => Promise<Conversation>;
-  sendMessage: (content: string, options?: { permissionMode?: PermissionMode; model?: ClaudeModel | null; attachments?: ChatAttachment[] }) => Promise<void>;
+  sendMessage: (content: string, options?: { permissionMode?: PermissionMode; model?: ClaudeModel | null; thinkingEffort?: ClaudeThinkingEffort | null; attachments?: ChatAttachment[] }) => Promise<void>;
   replyToQuestion: (messageId: string, content: string, attachments?: ChatAttachment[]) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
   applyChatSSE: (event: ChatEvent) => void;
@@ -180,6 +180,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           content,
           permissionMode: options?.permissionMode,
           model: options?.model ?? undefined,
+          thinkingEffort: options?.thinkingEffort ?? undefined,
           attachments: options?.attachments ?? [],
         }),
       });

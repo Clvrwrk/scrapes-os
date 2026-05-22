@@ -284,6 +284,7 @@ export function ChatPane({
           initialPermissionMode={task.permissionMode ?? "bypassPermissions"}
           initialExecutionPermissionMode={task.executionPermissionMode ?? null}
           initialModel={task.model ?? null}
+          initialThinkingEffort={task.thinkingEffort ?? null}
           onOptimisticReply={(entry: LogEntry) => appendLogEntry(task.id, entry)}
           subtasks={subtasks}
           onSelectSubtask={onSelectSubtask}

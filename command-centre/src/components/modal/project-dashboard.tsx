@@ -963,6 +963,7 @@ export function ProjectDashboard({
         initialPermissionMode={task.permissionMode ?? "bypassPermissions"}
         initialExecutionPermissionMode={task.executionPermissionMode ?? null}
         initialModel={task.model ?? null}
+        initialThinkingEffort={task.thinkingEffort ?? null}
         onOptimisticReply={onOptimisticReply}
         subtasks={childTasks.map(c => ({ id: c.id, title: c.title, status: c.status, phaseNumber: c.phaseNumber, gsdStep: c.gsdStep, needsInput: c.needsInput === true }))}
         onSelectSubtask={(id) => { const child = childTasks.find(c => c.id === id); if (child) handleSubtaskClick(child); }}

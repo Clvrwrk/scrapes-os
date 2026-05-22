@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   permissionMode TEXT DEFAULT 'bypassPermissions',
   executionPermissionMode TEXT DEFAULT 'bypassPermissions',
   model TEXT,
+  thinkingEffort TEXT CHECK (thinkingEffort IN ('auto', 'low', 'medium', 'high', 'xhigh', 'max')),
   dependsOnTaskIds TEXT,
   startSnapshot TEXT,
   FOREIGN KEY (parentId) REFERENCES tasks(id) ON DELETE CASCADE
