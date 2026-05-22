@@ -158,6 +158,66 @@ Three zones control how changes flow through the dev/main branching model.
 
 ---
 
+## Memory System
+
+Layered memory architecture. Different files serve different roles, with explicit caps on the ones loaded at session start to keep the prefix cache stable.
+
+### File Roles
+
+| File | Purpose | Cap | Loaded when |
+|------|---------|-----|-------------|
+| `context/SOUL.md` | Agent identity | ~3 KB | Session start (silent) |
+| `context/USER.md` | User profile and preferences | ~1.5 KB | Session start (silent) |
+| `context/MEMORY.md` | Curated working scratchpad — durable facts, active threads, environment notes, pending decisions | **2,500 chars** | Session start (silent) |
+| `context/memory/{YYYY-MM-DD}.md` | Daily session log (chronological, per-session blocks) | unbounded | Session start (today's only) |
+| `context/learnings.md` | Skill-specific learnings | unbounded | Per-skill (lazy) |
+
+### Memory Budget
+
+`context/MEMORY.md` is capped at **2,500 characters**. Before any write:
+
+1. Read the file in full
+2. Check character count:
+   - Bash: `wc -c < context/MEMORY.md`
+   - PowerShell: `(Get-Item context/MEMORY.md).Length`
+3. If the new content would push over the cap, consolidate existing entries first — merge similar lines, remove stale ones, tighten verbose entries. Only then add.
+4. If still over after consolidation, ask the user which entry to drop.
+
+**Mid-session writes persist to disk but only take effect on the next session.** This is intentional: it preserves the prefix cache (lower cost, faster startup). Always tell the user this in confirmation messages so they know why a just-saved fact isn't immediately visible.
+
+### Memory Write
+
+Triggered by phrases like "remember this", "remember that", "note that", "save this to memory", "update memory", "log this", "forget about", "remove from memory". Routes to the `meta-memory-write` skill.
+
+Three actions:
+
+- **add** — append under the appropriate section (after a substring dedup check)
+- **replace** — find substring + swap
+- **remove** — show the line to the user and confirm before deleting
+
+Sections in `context/MEMORY.md`:
+
+- `## Active Threads` — current work, open questions
+- `## Environment Notes` — URLs, configs, tool versions, project structure quirks
+- `## Pending Decisions` — decisions waiting on input
+
+Do not create new sections. If a fact doesn't fit, ask the user where it belongs.
+
+After a write, confirm with: `Saved — will be active from next session.`
+
+Never store secret values in `context/MEMORY.md` — reference env var names only (e.g., `FIRECRAWL_API_KEY in .env`).
+
+### Memory Retrieval
+
+When the user asks about past context, decisions, or facts:
+
+1. **Tier 0** — Check `context/MEMORY.md` and today's daily log. Already in context, zero cost. Covers most durable-fact lookups.
+2. **Fallback** — If Tier 0 has nothing: "I don't have a record of that. The detail may be in an older daily log under `context/memory/`."
+
+Tiers 1-3 (semantic search via `memsearch`, expanded chunks, raw transcripts) are deferred to a future phase. Until they ship, do not fabricate sources.
+
+---
+
 ## Multi-Client Architecture
 
 Agentic OS supports multiple clients from a single install. The root folder holds shared methodology, shared skills, and shared scripts. Each client gets a subfolder under `clients/` with its own brand context, memory, projects, and learnings.
@@ -240,6 +300,7 @@ Every skill and its output folder uses a category prefix.
 | `meta-skill-creator` | "create a skill", "build a skill", "new skill", "make a skill", "optimize skill description" |
 | `meta-wrap-up` | "wrap up", "close session", "end session", "we're done", "session done" |
 | `meta-goal-breakdown` | "break this down", "plan this out", "subtasks", "scope this work", "task breakdown", goal bar submissions |
+| `meta-memory-write` | "remember this", "remember that", "note that", "save this to memory", "update memory", "log this", "forget about", "remove from memory" |
 
 ### Foundation Skills
 
@@ -296,6 +357,7 @@ Load only the `brand_context/` files listed for each skill.
 | `mkt-icp` | — | summary | **writes** | — | — | `## mkt-icp` |
 | `meta-wrap-up` | — | — | — | — | — | `## meta-wrap-up` |
 | `meta-goal-breakdown` | — | summary | summary | — | — | `## meta-goal-breakdown` |
+| `meta-memory-write` | — | — | — | — | — | `## meta-memory-write` |
 | `str-ai-seo` | tone only | summary | full | — | — | `## str-ai-seo` |
 | `tool-stitch` | — | — | — | — | — | `## tool-stitch` |
 | `viz-stitch-design` | tone only | summary | language section | — | — | `## viz-stitch-design` |

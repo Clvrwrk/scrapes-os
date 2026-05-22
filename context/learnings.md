@@ -12,6 +12,12 @@
 
 
 # Individual Skills
+## meta-skill-creator
+
+## str-ai-seo
+
+## viz-interface-design
+
 ## mkt-brand-voice
 
 ## mkt-positioning
@@ -53,3 +59,5 @@
 ## ops-release
 
 - 2026-04-14: Added dev→main PR promotion step after tagging. Uses `gh pr create` and optionally `gh pr merge`. Non-blocking — user can decline.
+
+## meta-memory-write

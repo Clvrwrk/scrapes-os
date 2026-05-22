@@ -384,6 +384,18 @@ class ProcessManager {
         contextSources.push({ type: "system", label: "Session Activity Summary" });
       }
 
+      // Prepend the session snapshot to every prompt so chat tasks, GSD tasks,
+      // scoping prompts, and wrap-up tasks all share the same baseline context
+      // (agent identity + user prefs + working memory + today's daily log) that
+      // a fresh Claude Code CLI session would have via the SessionStart hook.
+      const snapshot = this.readSessionSnapshot(cwd);
+      if (snapshot.content) {
+        prompt = `${snapshot.content}\n\n---\n\n${prompt}`;
+        for (const label of snapshot.loaded) {
+          contextSources.push({ type: "system", label });
+        }
+      }
+
       // Persist context sources to DB and log what was loaded
       if (contextSources.length > 0) {
         db.prepare("UPDATE tasks SET contextSources = ? WHERE id = ?")
@@ -572,6 +584,69 @@ class ProcessManager {
 
     if (sections.length === 0) return "";
     return `\n\n--- BRAND & USER CONTEXT ---\n${sections.join("\n\n")}\n--- END CONTEXT ---\n`;
+  }
+
+  /**
+   * Read the session snapshot — agent identity, user preferences, working
+   * memory, and today's daily log. Prepended to every task prompt so the
+   * command-centre's spawned -p sessions have the same baseline context as
+   * a fresh Claude Code CLI session would have via .claude/hooks/load-memory-snapshot.js.
+   *
+   * Loads (when present):
+   *   - context/SOUL.md            (agent identity)
+   *   - context/USER.md            (user profile)
+   *   - context/MEMORY.md          (curated working scratchpad — frozen snapshot)
+   *   - context/memory/{today}.md  (today's daily log, with yesterday as fallback)
+   *
+   * Does NOT load context/learnings.md — that file is lazy-loaded per skill
+   * by design (see AGENTS.md "Memory System").
+   */
+  private readSessionSnapshot(cwd: string): { content: string; loaded: string[] } {
+    const fs = require("fs") as typeof import("fs");
+    const pathMod = require("path") as typeof import("path");
+    const sections: string[] = [];
+    const loaded: string[] = [];
+
+    const tryLoad = (relPath: string, label: string): void => {
+      const abs = pathMod.join(cwd, relPath);
+      try {
+        if (!fs.existsSync(abs)) return;
+        const content = fs.readFileSync(abs, "utf-8").trim();
+        if (content.length === 0) return;
+        sections.push(`[${label}]\n${content}`);
+        loaded.push(label);
+      } catch { /* skip */ }
+    };
+
+    tryLoad("context/SOUL.md", "SOUL.md");
+    tryLoad("context/USER.md", "USER.md");
+    tryLoad("context/MEMORY.md", "MEMORY.md");
+
+    const dateStr = (d: Date): string => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    const today = dateStr(new Date());
+    const yesterday = dateStr(new Date(Date.now() - 86400000));
+    const todayLogRel = `context/memory/${today}.md`;
+    const yesterdayLogRel = `context/memory/${yesterday}.md`;
+    if (fs.existsSync(pathMod.join(cwd, todayLogRel))) {
+      tryLoad(todayLogRel, `memory/${today}.md (today)`);
+    } else {
+      tryLoad(yesterdayLogRel, `memory/${yesterday}.md (yesterday — no session today yet)`);
+    }
+
+    if (sections.length === 0) return { content: "", loaded: [] };
+    const content =
+      `--- SESSION SNAPSHOT ---\n` +
+      `The following files were auto-loaded so this task starts with the same baseline ` +
+      `context that a fresh Claude Code CLI session would have. Mid-session writes to ` +
+      `context/MEMORY.md persist to disk but only take effect on the next task.\n\n` +
+      sections.join("\n\n") +
+      `\n--- END SNAPSHOT ---`;
+    return { content, loaded };
   }
 
   private buildProjectScopingPrompt(task: Task, cwd: string): string {
