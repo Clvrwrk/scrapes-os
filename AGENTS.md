@@ -194,9 +194,10 @@ Never store secret values in `context/MEMORY.md` — reference env var names onl
 When the user asks about past context, decisions, or facts:
 
 1. **Tier 0** — Check `context/MEMORY.md` and today's daily log. Already in context, zero cost. Covers most durable-fact lookups.
-2. **Fallback** — If Tier 0 has nothing: "I don't have a record of that. The detail may be in an older daily log under `context/memory/`."
+2. **Tier 1** — If Tier 0 has nothing, run semantic search: `memsearch search "query"` (searches `context/memory/` and `context/transcripts/`). No new skill needed — run the bash command directly and summarise results.
+3. **Fallback** — If Tiers 0–1 have nothing: "I don't have a record of that."
 
-Tiers 1-3 (semantic search via `memsearch`, expanded chunks, raw transcripts) are deferred to a future phase. Until they ship, do not fabricate sources.
+Tiers 2-3 (expanded chunks, raw transcript deep-search) are deferred. Do not fabricate sources.
 
 ---
 
