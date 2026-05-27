@@ -24,6 +24,7 @@ import {
   normalizePermissionMode,
 } from "@/lib/permission-mode";
 import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
+import { loadClaudeLlmPreference, saveClaudeLlmPreference } from "@/lib/llm-preferences";
 import type { SlashCommand } from "@/lib/slash-commands";
 import { recordTagUsage } from "@/components/board/goal-chips";
 import { syncComposerTextareaHeight } from "@/lib/composer";
@@ -180,6 +181,7 @@ export function ReplyInput({
   projectSlug,
   hideTasksPopover,
 }: ReplyInputProps) {
+  const createsPaneTask = Boolean(onCreatePaneTask);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -196,8 +198,16 @@ export function ReplyInput({
       "bypassPermissions",
     ),
   );
-  const [model, setModel] = useState<ClaudeModel | null>(initialModel);
-  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(initialThinkingEffort ?? "auto");
+  const [model, setModel] = useState<ClaudeModel | null>(() =>
+    createsPaneTask && initialModel == null && initialThinkingEffort == null
+      ? loadClaudeLlmPreference().model
+      : initialModel
+  );
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(() =>
+    createsPaneTask && initialModel == null && initialThinkingEffort == null
+      ? loadClaudeLlmPreference().reasoningEffort
+      : initialThinkingEffort ?? "auto"
+  );
   const composer = useChatComposer({
     surface: "task",
     scopeId: taskId,
@@ -240,9 +250,15 @@ export function ReplyInput({
         "bypassPermissions",
       ),
     );
-    setModel(initialModel);
-    setThinkingEffort(initialThinkingEffort ?? "auto");
-  }, [taskId, initialPermissionMode, initialExecutionPermissionMode, initialModel, initialThinkingEffort]);
+    if (createsPaneTask && initialModel == null && initialThinkingEffort == null) {
+      const preference = loadClaudeLlmPreference();
+      setModel(preference.model);
+      setThinkingEffort(preference.reasoningEffort);
+    } else {
+      setModel(initialModel);
+      setThinkingEffort(initialThinkingEffort ?? "auto");
+    }
+  }, [taskId, initialPermissionMode, initialExecutionPermissionMode, initialModel, initialThinkingEffort, createsPaneTask]);
 
   useEffect(() => {
     syncComposerTextareaHeight(composer.textareaRef.current, {
@@ -289,26 +305,36 @@ export function ReplyInput({
     );
     setActivePermissionMode(nextState.permissionMode);
     setExecutionPermissionMode(nextState.executionPermissionMode);
-    if (!onCreatePaneTask) {
+    if (!createsPaneTask) {
       void updateTask(taskId, nextState);
     }
-  }, [activePermissionMode, executionPermissionMode, onCreatePaneTask, taskId, updateTask]);
+  }, [activePermissionMode, createsPaneTask, executionPermissionMode, taskId, updateTask]);
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
-    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort);
+    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort) ?? "auto";
     setModel(nextModel);
     setThinkingEffort(nextThinkingEffort);
-    if (!onCreatePaneTask) {
+    saveClaudeLlmPreference({
+      model: nextModel,
+      reasoningEffort: nextThinkingEffort,
+    });
+    if (!createsPaneTask) {
       void updateTask(taskId, { model: nextModel, thinkingEffort: nextThinkingEffort });
     }
-  }, [onCreatePaneTask, taskId, thinkingEffort, updateTask]);
+  }, [createsPaneTask, taskId, thinkingEffort, updateTask]);
 
   const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
-    setThinkingEffort(nextThinkingEffort);
-    if (!onCreatePaneTask) {
-      void updateTask(taskId, { thinkingEffort: nextThinkingEffort });
+    const normalizedThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(model, nextThinkingEffort) ?? "auto";
+    setThinkingEffort(normalizedThinkingEffort);
+    saveClaudeLlmPreference({
+      model: model ?? undefined,
+      reasoningEffort: normalizedThinkingEffort,
+    });
+    if (!createsPaneTask) {
+      void updateTask(taskId, { thinkingEffort: normalizedThinkingEffort });
     }
-  }, [onCreatePaneTask, taskId, updateTask]);
+  }, [createsPaneTask, model, taskId, updateTask]);
 
   const handleSubmit = useCallback(async () => {
     const submission = composer.buildSubmission();
