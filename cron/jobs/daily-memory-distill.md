@@ -17,10 +17,12 @@ Task: Distill today's session log into the curated working scratchpad.
 
 Steps:
 
-1. Find today's date (YYYY-MM-DD format). Check if `context/memory/{today}.md` exists.
-   - If it does not exist, output "No session today — nothing to distill." and stop.
+1. Find today's date (YYYY-MM-DD format). Locate today's session log:
+   - Check `context/memory/{today}.md` first (manual wrap-up log).
+   - If it does not exist, check `.memsearch/memory/{today}.md` (auto-captured by the memsearch Stop hook — written when sessions run through Command Centre or without a manual wrap-up).
+   - If neither exists, output "No session today — nothing to distill." and stop.
 
-2. Read `context/memory/{today}.md` in full. Extract durable facts from the session blocks:
+2. Read the located session file in full. Extract durable facts from the session blocks:
    - URLs, staging/prod endpoints, tool versions, config locations → `## Environment Notes`
    - Work still in progress, open questions, things to revisit next session → `## Active Threads`
    - Decisions waiting on input or with options still open → `## Pending Decisions`

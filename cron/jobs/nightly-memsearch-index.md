@@ -20,7 +20,7 @@ Steps:
    - If it fails, output "memsearch not installed — index skipped." and stop.
 
 2. Index all Agentic OS memory sources:
-   - Run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/`
+   - Run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/ .memsearch/memory/`
 
 3. Check the result:
    - Run `memsearch stats`

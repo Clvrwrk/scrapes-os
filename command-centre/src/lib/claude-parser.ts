@@ -212,6 +212,19 @@ export class ClaudeOutputParser {
 
     const sessionId = typeof parsed.session_id === "string" ? parsed.session_id : undefined;
 
+    // When num_turns=0 (skill ran as a local command with no API turns), the
+    // result text lives in the "result" field instead of an assistant message.
+    // Emit it as a log entry so the UI shows the skill output.
+    const numTurns = typeof parsed.num_turns === "number" ? parsed.num_turns : null;
+    if (numTurns === 0 && typeof parsed.result === "string" && parsed.result.trim()) {
+      this.callbacks.onLogEntry?.({
+        id: crypto.randomUUID(),
+        type: "text",
+        timestamp: new Date().toISOString(),
+        content: parsed.result,
+      });
+    }
+
     this.callbacks.onComplete({ costUsd, tokensUsed, durationMs, sessionId });
   }
 
