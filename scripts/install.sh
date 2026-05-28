@@ -264,13 +264,21 @@ setup_github_repo() {
     read -r repo_name
     repo_name="${repo_name:-$default_repo}"
 
+    # If origin still points at the canonical repo, move it to `upstream` BEFORE
+    # creating the fork. Otherwise `gh repo create --remote=origin` collides with
+    # the existing origin remote and silently fails — leaving the user with no
+    # remote pointing at the canonical repo, which breaks update.sh.
+    if [[ $is_upstream -eq 1 ]]; then
+        if git -C "$REPO_ROOT" remote get-url upstream >/dev/null 2>&1; then
+            git -C "$REPO_ROOT" remote remove origin 2>/dev/null || true
+        else
+            git -C "$REPO_ROOT" remote rename origin upstream 2>/dev/null || true
+        fi
+    fi
+
     info "Creating private repo ${gh_user}/${repo_name}..."
 
     if gh repo create "${repo_name}" --private --source="$REPO_ROOT" --remote=origin 2>/dev/null; then
-        if [[ $is_upstream -eq 1 ]]; then
-            git -C "$REPO_ROOT" remote remove upstream 2>/dev/null || true
-            git -C "$REPO_ROOT" remote add upstream "$origin_url" 2>/dev/null || true
-        fi
         git -C "$REPO_ROOT" push -u origin main 2>/dev/null || {
             local current_branch
             current_branch="$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null || echo "main")"
@@ -282,6 +290,9 @@ setup_github_repo() {
     fi
 
     warn "Automatic repo creation failed."
+    if [[ $is_upstream -eq 1 ]]; then
+        warn "Canonical repo is now at the 'upstream' remote — updates will still work."
+    fi
     GITHUB_DECISION="failed"
     return 0
 }
