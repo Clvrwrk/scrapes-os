@@ -27,7 +27,7 @@ if ! command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
   echo "ERROR: Python not found. Install Python 3.8+ and re-run."
   exit 1
 fi
-PYTHON=$(command -v python3 || command -v python)
+PYTHON=$(command -v python3 2>/dev/null || command -v python)
 echo "    $($PYTHON --version)"
 
 echo "==> Checking memsearch..."
@@ -45,6 +45,15 @@ IS_WINDOWS=false
 case "$OS" in
   MINGW*|CYGWIN*|MSYS*) IS_WINDOWS=true ;;
 esac
+
+# Windows (Git Bash): memsearch hooks call python3 but Windows only has python.
+# Create a shim in ~/bin so hooks work when spawned by Claude Code.
+if [ "$IS_WINDOWS" = true ] && ! command -v python3 &>/dev/null; then
+  mkdir -p "$HOME/bin"
+  printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$HOME/bin/python3"
+  chmod +x "$HOME/bin/python3"
+  echo "    Created ~/bin/python3 shim (memsearch hooks require python3 in PATH)."
+fi
 
 # Configure Milvus backend
 if [ "$IS_WINDOWS" = true ]; then
@@ -77,7 +86,7 @@ fi
 
 echo "==> Running initial index..."
 echo "    This may take a few minutes on first run."
-memsearch index context/memory/ context/transcripts/
+memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/
 
 echo ""
 echo "==> Done. Run 'memsearch stats' to check the index."

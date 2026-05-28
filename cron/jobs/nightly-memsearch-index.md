@@ -5,7 +5,7 @@ days: daily
 active: 'true'
 model: haiku
 notify: on_failure
-description: 'Re-indexes context/memory/ and context/transcripts/ with memsearch'
+description: 'Re-indexes all Agentic OS memory sources with memsearch'
 timeout: 15m
 retry: '1'
 ---
@@ -19,8 +19,8 @@ Steps:
    - Run `memsearch --version`
    - If it fails, output "memsearch not installed — index skipped." and stop.
 
-2. Index all memory and transcript files:
-   - Run `memsearch index context/memory/ context/transcripts/`
+2. Index all Agentic OS memory sources:
+   - Run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/`
 
 3. Check the result:
    - Run `memsearch stats`
