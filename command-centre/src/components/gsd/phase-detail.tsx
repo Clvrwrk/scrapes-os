@@ -141,7 +141,7 @@ export function PhaseDetail({ phase, onViewFile, onPhaseUpdated, onCommand }: Ph
 
   const handleGsdAction = useCallback(async (action: (typeof gsdActions)[number]) => {
     const phaseNum = phase.number;
-    const command = `/gsd:${action.command} ${phaseNum}`;
+    const command = `/gsd-${action.command} ${phaseNum}`;
     const label = `${action.label} Phase ${phaseNum}: ${phase.name}`;
 
     // If parent provides a command handler, fill the command bar instead

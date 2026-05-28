@@ -165,7 +165,7 @@ export default function GsdPage() {
                 fontSize: 13,
               }}
             >
-              /gsd:new-project
+              /gsd-new-project
             </code>
           </p>
         </div>

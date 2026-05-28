@@ -95,11 +95,11 @@ Each client workspace runs its own independent GSD project:
 - **`clients/abc/`** → active GSD project at `clients/abc/.planning/`
 - **`clients/xyz/`** → active GSD project at `clients/xyz/.planning/`
 
-To start a GSD project for a client, select that client in the command-centre and ask Claude to run `/gsd:new-project`. GSD creates `.planning/` in the client workspace root automatically.
+To start a GSD project for a client, select that client in the command-centre and ask Claude to run `/gsd-new-project`. GSD creates `.planning/` in the client workspace root automatically.
 
 ### Archiving a completed GSD project
 
-When you're done with a GSD project, run `/archive-gsd`. This updates the brief's status to `complete` and leaves `.planning/` in place as a historical record. Start a new GSD project any time with `/gsd:new-project`.
+When you're done with a GSD project, run `/archive-gsd`. This updates the brief's status to `complete` and leaves `.planning/` in place as a historical record. Start a new GSD project any time with `/gsd-new-project`.
 
 ---
 

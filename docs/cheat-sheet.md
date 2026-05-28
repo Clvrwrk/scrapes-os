@@ -46,9 +46,9 @@ The Command Centre schedules jobs while it is running. If you want scheduling wi
 |-------|------|-----|-------|
 | **1** | Single task | Just ask Claude | `projects/{category}-{type}/` |
 | **2** | Planned project | Claude scopes it → project folder with `brief.md` | `projects/briefs/{project-name}/` |
-| **3** | GSD project | `/gsd:new-project` → full phased planning | `projects/briefs/{project-name}/` + `.planning/` |
+| **3** | GSD project | `/gsd-new-project` → full phased planning | `projects/briefs/{project-name}/` + `.planning/` |
 
-Level 1 output goes to category folders. Level 2/3 output goes inside the project folder alongside `brief.md`. Claude automatically helps you pick the right level when you state your goal. Run `/archive-gsd` when a GSD project is done to free up the workspace.
+Level 1 output goes to category folders. Level 2/3 output goes inside the project folder alongside `brief.md`. Claude automatically helps you pick the right level when you state your goal. Run `/archive-gsd` when a GSD project is done; `.planning/` stays in place as the project record.
 
 ## Key Paths (within your working folder)
 

@@ -27,6 +27,7 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
         "scripts/lib/pull.sh"
         "scripts/lib/merge.sh"
         "scripts/lib/catalog.sh"
+        "scripts/lib/gsd-migration.sh"
         "scripts/lib/synthesize.py"
         "scripts/rollback.sh"
         "scripts/session-end.sh"
@@ -125,6 +126,10 @@ source "$UPDATE_LIB_DIR/pull.sh"
 
 # Step 2 of 4: skill review + other file review + restore stash
 source "$UPDATE_LIB_DIR/merge.sh"
+
+# Legacy GSD migration must run after the safe pull/merge work and before the final summary.
+source "$UPDATE_LIB_DIR/gsd-migration.sh"
+agentic_os_gsd_run_update_migration "$REPO_ROOT" || true
 
 # Steps 3–4: gate new skills, catalog, GSD, summary, What's New
 source "$UPDATE_LIB_DIR/catalog.sh"

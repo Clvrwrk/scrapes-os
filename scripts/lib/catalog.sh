@@ -258,22 +258,9 @@ else
 fi
 
 # =========================================================
-# GSD Framework Sync (disabled)
+# GSD migration status
 # =========================================================
-GSD_STATUS=""
-# if command -v node &>/dev/null; then
-#     GSD_GLOBAL="$HOME/.claude/commands/gsd"
-#     GSD_LOCAL="$REPO_ROOT/.claude/commands/gsd"
-#     if [[ -d "$GSD_LOCAL" ]]; then
-#         rm -rf "$GSD_LOCAL"
-#         find "$REPO_ROOT/.claude/agents" -name "gsd-*.md" -delete 2>/dev/null || true
-#     fi
-#     if [[ -d "$GSD_GLOBAL" ]] && [[ $(ls -1 "$GSD_GLOBAL"/*.md 2>/dev/null | wc -l) -gt 10 ]]; then
-#         GSD_STATUS="installed globally"
-#     else
-#         npx get-shit-done-cc --global --claude 2>/dev/null && GSD_STATUS="freshly installed (global)"
-#     fi
-# fi
+GSD_STATUS="${AGENTIC_OS_GSD_UPDATE_STATUS:-}"
 
 # =========================================================
 # STEP 4 OF 4: Summary

@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
                  VALUES (?, ?, ?, ?, 'task', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`
               ).run(
                 taskId, title,
-                `Run /gsd:${step === "execute" ? "execute-phase" : step === "verify" ? "verify-work" : step === "plan" ? "plan-phase" : "discuss-phase"} for Phase ${phase.number}`,
+                `Run /gsd-${step === "execute" ? "execute-phase" : step === "verify" ? "verify-work" : step === "plan" ? "plan-phase" : "discuss-phase"} for Phase ${phase.number}`,
                 status,
                 parentTask!.id, parentTask!.projectSlug, columnOrder,
                 now, now, parentTask!.clientId,
