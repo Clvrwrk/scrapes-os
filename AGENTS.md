@@ -196,9 +196,17 @@ When the user asks about past context, decisions, or facts:
 1. **Tier 0** — Check `context/MEMORY.md` and today's daily log. Already in context, zero cost. Covers most durable-fact lookups.
 2. **Tier 1** — If Tier 0 has nothing, run semantic search. Two ways depending on what's installed:
    - **memsearch plugin installed** (Claude Code): invoke `/memory-recall "query"` or ask naturally — the plugin auto-invokes the skill.
-   - **CLI only**: run `memsearch search "query"` directly and summarise results.
-   Searches `context/memory/` and `context/transcripts/`. No new skill needed for the CLI path.
-3. **Fallback** — If Tiers 0–1 have nothing: "I don't have a record of that."
+   - **CLI only**: run `memsearch search "query" --top-k 10 --json-output | python3 scripts/lib/reranker.py "query"` — results come back re-ranked by source authority and recency. Summarise the top 5.
+   Searches `context/memory/`, `.memsearch/memory/`, `context/transcripts/`, `context/learnings.md`, and `brand_context/`.
+3. **Cite sources** — structure every recall response based on what was found:
+
+   **Found:** answer + cite source inline ("Based on the session log from 2026-05-11 and a decision in MEMORY.md...") + temporal context ("This was last discussed 3 days ago"). If the source is >14 days old: "Note: this information is from [date] — it may be outdated."
+
+   **Partial:** state what you know + what you don't + where you looked + temporal gap ("Last mention of [topic] was [date]. No records since then.") + what might fill the gap.
+
+   **Absent:** "I checked MEMORY.md, daily logs back to [earliest date], and ran semantic search across all indexed sources. No mentions of [topic]. If discussed, it may predate capture or occurred in a session that wasn't logged."
+
+   For partial or absent responses: run `bash scripts/lib/memory-meta.sh "[topic]"` to get exact coverage before responding.
 
 Tiers 2-3 (expanded chunks, raw transcript deep-search) are deferred. Do not fabricate sources.
 
