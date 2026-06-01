@@ -512,9 +512,8 @@ function BlockedView({
           }}
         >
           <strong style={{ fontWeight: 600 }}>Archive this project?</strong>{" "}
-          This will move <code>.planning/</code> into the project&apos;s
-          brief folder and mark the brief as complete. You can&apos;t undo
-          this from the UI.
+          This will leave <code>.planning/</code> in place and mark the
+          brief as complete. You can&apos;t undo this from the UI.
         </div>
       )}
 

@@ -7,7 +7,7 @@ import type { Task, GsdStep } from "@/types/task";
 interface NextActionChipsProps {
   task: Task;
   childTasks: Task[];
-  /** Insert text into the reply input (for commands like /gsd:...) */
+  /** Insert text into the reply input (for commands like /gsd-...) */
   onInsertCommand: (text: string) => void;
   /** Execute a subtask by ID */
   onRunSubtask?: (taskId: string) => void;
@@ -34,6 +34,11 @@ interface ChipDef {
 
 const GSD_STEP_ORDER: GsdStep[] = ["discuss", "plan", "execute", "verify"];
 
+function gsdPhaseCommand(step: GsdStep, phaseNum: number | string): string {
+  if (step === "verify") return `/gsd-verify-work ${phaseNum}`;
+  return `/gsd-${step}-phase ${phaseNum}`;
+}
+
 function getGsdChips(childTasks: Task[]): ChipDef[] {
   const currentPhase = childTasks.find((c) => c.status !== "done");
   if (!currentPhase) {
@@ -41,7 +46,7 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
       {
         label: "Verify All Phases",
         description: "Run final verification across all phases",
-        command: "/gsd:verify-all",
+        command: "/gsd-audit-milestone",
         icon: CheckCircle2,
         primary: true,
       },
@@ -73,13 +78,13 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
         {
           label: `Discuss Phase ${phaseNum}`,
           description: "Send discuss command to Claude",
-          command: `/gsd:discuss-phase ${phaseNum}`,
+          command: gsdPhaseCommand("discuss", phaseNum),
           icon: MessageSquare,
         },
         {
           label: "Skip to Execute",
           description: "Jump straight to execution",
-          command: `/gsd:execute-phase ${phaseNum}`,
+          command: gsdPhaseCommand("execute", phaseNum),
           icon: SkipForward,
         },
       ];
@@ -106,7 +111,7 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
     chips.push({
       label: `Plan Phase ${phaseNum}`,
       description: `Create the plan for "${phaseTitle}"`,
-      command: `/gsd:plan-phase ${phaseNum}`,
+      command: gsdPhaseCommand("plan", phaseNum),
       icon: ListChecks,
       primary: true,
     });
@@ -114,7 +119,7 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
     chips.push({
       label: `Execute Phase ${phaseNum}`,
       description: `Run the plan for "${phaseTitle}"`,
-      command: `/gsd:execute-phase ${phaseNum}`,
+      command: gsdPhaseCommand("execute", phaseNum),
       icon: Play,
       primary: true,
     });
@@ -122,7 +127,7 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
     chips.push({
       label: `Verify Phase ${phaseNum}`,
       description: `Check "${phaseTitle}" meets its goals`,
-      command: `/gsd:verify-phase ${phaseNum}`,
+      command: gsdPhaseCommand("verify", phaseNum),
       icon: CheckCircle2,
       primary: true,
     });
@@ -146,7 +151,7 @@ function getGsdChips(childTasks: Task[]): ChipDef[] {
     chips.push({
       label: `${nextStep.charAt(0).toUpperCase() + nextStep.slice(1)} Phase ${phaseNum}`,
       description: `Advance to the ${nextStep} step`,
-      command: `/gsd:${nextStep}-phase ${phaseNum}`,
+      command: gsdPhaseCommand(nextStep, phaseNum),
       icon: Play,
       primary: true,
     });

@@ -23,6 +23,7 @@ $PowerShellHost = (Get-Process -Id $PID).Path
 $CronDryRun = $env:AGENTIC_OS_CRON_DRY_RUN
 
 . (Join-Path $ScriptDir "lib\python.ps1")
+. (Join-Path $ScriptDir "lib\gsd-migration.ps1")
 
 function Info($Message) { Write-Host $Message -ForegroundColor Cyan }
 function Success($Message) { Write-Host "  [OK] $Message" -ForegroundColor Green }
@@ -298,12 +299,6 @@ function Install-Gsd {
     Write-Host "  This installs the optional GSD commands for structured project work."
     Write-Host ""
 
-    if (-not (Read-YesNo -Prompt "Install GSD now?")) {
-        Warn "Skipped GSD installation."
-        $script:GsdDecision = "skipped"
-        return
-    }
-
     if ($CronDryRun -eq "1") {
         Warn "Dry run mode active - skipping GSD install."
         $script:GsdDecision = "skipped-dry-run"
@@ -316,27 +311,32 @@ function Install-Gsd {
         return
     }
 
-    $gsdGlobal = Join-Path $HOME ".claude\commands\gsd"
-    $gsdLocal = Join-Path $RepoRoot ".claude\commands\gsd"
+    if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
+        Warn "npx is required for GSD. Install npm first."
+        $script:GsdDecision = "unavailable"
+        return
+    }
 
-    if ((Test-Path $gsdGlobal) -and ((Get-ChildItem $gsdGlobal -Filter *.md -ErrorAction SilentlyContinue).Count -gt 10)) {
-        Success "GSD already installed globally"
-        $script:GsdDecision = "already-installed"
+    $migrationResult = Invoke-AgenticOsGsdMigration -RepoRoot $RepoRoot
+    if ($migrationResult -eq "declined") {
+        Warn "Legacy GSD left in place. Skipped GSD-redux install."
+        $script:GsdDecision = "migration-declined"
+        return
+    }
+
+    if ($migrationResult -ne "cleaned" -and -not (Read-YesNo -Prompt "Install GSD now?")) {
+        Warn "Skipped GSD installation."
+        $script:GsdDecision = "skipped"
+        return
+    }
+
+    if (Install-AgenticOsGsdRedux) {
+        Success "GSD-redux installed globally"
+        $script:GsdDecision = "installed"
     }
     else {
-        & npx get-shit-done-cc --global --claude 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Success "GSD installed globally"
-            $script:GsdDecision = "installed"
-        }
-        else {
-            Warn "GSD installation failed. You can retry later with: npx get-shit-done-cc --global --claude"
-            $script:GsdDecision = "failed"
-        }
-    }
-
-    if (Test-Path $gsdLocal) {
-        Remove-Item -LiteralPath $gsdLocal -Recurse -Force -ErrorAction SilentlyContinue
+        Warn "GSD installation failed. You can retry later with: npx -y @opengsd/get-shit-done-redux@latest --global --claude"
+        $script:GsdDecision = "failed"
     }
 }
 

@@ -318,26 +318,26 @@ class ProcessManager {
 
 
       if (isSlashCommand) {
-        // Slash command task — pass the description as-is (e.g. "Run /start-here", "Run /gsd:plan-phase 6")
+        // Slash command task — pass the description as-is (e.g. "Run /start-here", "Run /gsd-plan-phase 6")
         prompt = task.description!;
       } else if (gsdStep) {
         // Target the explicit phase number the user clicked so each GSD step
-        // button ends up running the right command (e.g. /gsd:plan-phase 3)
+        // button ends up running the right command (e.g. /gsd-plan-phase 3)
         // instead of the ambiguous "current phase".
         const phaseArg = gsdPhaseNumber != null ? ` ${gsdPhaseNumber}` : "";
         const gsdPrompts: Record<string, string> = {
-          discuss: `Run /gsd:discuss-phase${phaseArg}. Ask the user interactive questions — do NOT use --auto. Wait for their replies.`,
-          plan: `Run /gsd:plan-phase${phaseArg}.`,
-          execute: `Run /gsd:execute-phase${phaseArg}.`,
-          verify: `Run /gsd:verify-work${phaseArg}.`,
+          discuss: `Run /gsd-discuss-phase${phaseArg}. Ask the user interactive questions — do NOT use --auto. Wait for their replies.`,
+          plan: `Run /gsd-plan-phase${phaseArg}.`,
+          execute: `Run /gsd-execute-phase${phaseArg}.`,
+          verify: `Run /gsd-verify-work${phaseArg}.`,
         };
         prompt = gsdPrompts[gsdStep] || task.title;
       } else if (task.level === "project" && isTopLevelParent) {
         // Project scoping — interactive conversation with brand context
         prompt = this.buildProjectScopingPrompt(task, cwd);
       } else if (task.level === "gsd" && isTopLevelParent) {
-        // GSD project — run /gsd:new-project which handles interviews, research, and roadmap creation
-        prompt = `Run /gsd:new-project "${task.title}"${task.description ? `\n\nContext from user: ${task.description}` : ""}`;
+        // GSD project — run /gsd-new-project which handles interviews, research, and roadmap creation
+        prompt = `Run /gsd-new-project "${task.title}"${task.description ? `\n\nContext from user: ${task.description}` : ""}`;
       } else {
         if (task.projectSlug) {
           const briefPath = pathMod.join(cwd, "projects", "briefs", task.projectSlug, "brief.md");
@@ -861,7 +861,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       title.includes("session") ||
       desc.includes("/wrap-up") ||
       desc.includes("meta-wrap-up") ||
-      desc.includes("/gsd:session-report") ||
+      desc.includes("/gsd-session-report") ||
       desc.includes("session summary") ||
       desc.includes("what did we do") ||
       desc.includes("what have we done")
@@ -1762,7 +1762,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       // Auto-create subtasks for parent tasks on completion
       if (!updated.parentId) {
         if (updated.level === "gsd") {
-          // GSD: sync phases from .planning/ROADMAP.md (created by /gsd:new-project)
+          // GSD: sync phases from .planning/ROADMAP.md (created by /gsd-new-project)
           this.autoSyncPhases(taskId);
         } else if (updated.level === "project") {
           // Project: extract deliverable subtasks from the conversation output

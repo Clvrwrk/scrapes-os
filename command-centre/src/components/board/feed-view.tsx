@@ -1117,7 +1117,7 @@ function GsdPhasesOverview({
     (commandName: string, phaseNumber: number, e: React.MouseEvent) => {
       e.stopPropagation();
       if (onCommand) {
-        onCommand(`/gsd:${commandName} ${phaseNumber}`);
+        onCommand(`/gsd-${commandName} ${phaseNumber}`);
       }
     },
     [onCommand]
@@ -1403,7 +1403,7 @@ function GsdPhasesOverview({
                   >
                     <button
                       onClick={(e) => handleLaunchStep(commandName, phase.phaseNumber, e)}
-                      title={`Run /gsd:${commandName} ${phase.phaseNumber}`}
+                      title={`Run /gsd-${commandName} ${phase.phaseNumber}`}
                       style={{
                         fontSize: 10,
                         fontFamily: "var(--font-space-grotesk), Space Grotesk, sans-serif",
