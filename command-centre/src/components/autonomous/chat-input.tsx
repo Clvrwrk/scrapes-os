@@ -14,6 +14,7 @@ import type { ChatAttachment } from "@/types/chat-composer";
 import { insertTextareaNewline, shouldInsertModifierNewline, shouldSubmitOnPlainEnter, syncComposerTextareaHeight } from "@/lib/composer";
 import { getChatAttachmentExtension } from "@/lib/chat-attachment-policy";
 import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
+import { loadClaudeLlmPreference, saveClaudeLlmPreference } from "@/lib/llm-preferences";
 
 interface ChatInputProps {
   scopeId?: string | null;
@@ -32,8 +33,8 @@ interface ChatInputProps {
 
 export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputProps) {
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("bypassPermissions");
-  const [model, setModel] = useState<ClaudeModel | null>(null);
-  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>("auto");
+  const [model, setModel] = useState<ClaudeModel | null>(() => loadClaudeLlmPreference().model);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(() => loadClaudeLlmPreference().reasoningEffort);
   const composer = useChatComposer({
     surface: "conversation",
     scopeId,
@@ -62,6 +63,12 @@ export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputP
     });
   }, [composer.message, composer.textareaRef, composerHeight, hasUserResized, maxHeight, minHeight]);
 
+  useEffect(() => {
+    const preference = loadClaudeLlmPreference();
+    setModel(preference.model);
+    setThinkingEffort(preference.reasoningEffort);
+  }, []);
+
   const handleSend = useCallback(() => {
     const submission = composer.buildSubmission();
     if ((!submission.message && submission.attachments.length === 0) || disabled) return;
@@ -76,9 +83,25 @@ export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputP
   }, [composer, disabled, model, onSend, permissionMode, thinkingEffort]);
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    const nextThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort ?? "auto") ?? "auto";
     setModel(nextModel);
-    setThinkingEffort((current) => normalizeClaudeThinkingEffortForModel(nextModel, current ?? "auto"));
-  }, []);
+    setThinkingEffort(nextThinkingEffort);
+    saveClaudeLlmPreference({
+      model: nextModel,
+      reasoningEffort: nextThinkingEffort,
+    });
+  }, [thinkingEffort]);
+
+  const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
+    const normalizedThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(model, nextThinkingEffort) ?? "auto";
+    setThinkingEffort(normalizedThinkingEffort);
+    saveClaudeLlmPreference({
+      model: model ?? undefined,
+      reasoningEffort: normalizedThinkingEffort,
+    });
+  }, [model]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldInsertModifierNewline(event)) {
@@ -282,7 +305,7 @@ export function ChatInput({ scopeId, onSend, disabled, placeholder }: ChatInputP
             </button>
           )}
           <ModelPicker value={model} onChange={handleModelChange} />
-          <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={setThinkingEffort} />
+          <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={handleThinkingEffortChange} />
           <PermissionPicker value={permissionMode} onChange={setPermissionMode} />
         </div>
       </div>

@@ -27,6 +27,7 @@ import {
 import { expandComposerPastedBlocks } from "@/lib/chat-message-content";
 import { buildGoalDraftSnapshot, hasGoalDraftContent } from "@/lib/goal-drafts";
 import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
+import { loadClaudeLlmPreference, saveClaudeLlmPreference } from "@/lib/llm-preferences";
 import {
   insertPastedTextAtSelection,
   removePendingPastedText,
@@ -100,8 +101,8 @@ export function NewGoalPanel({
   const [message, setMessage] = useState(draft?.message ?? "");
   const [level, setLevel] = useState<TaskLevel>(draft?.level ?? "task");
   const [showLevelMenu, setShowLevelMenu] = useState(false);
-  const [model, setModel] = useState<ClaudeModel | null>(draft?.model ?? null);
-  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(draft?.thinkingEffort ?? "auto");
+  const [model, setModel] = useState<ClaudeModel | null>(() => draft?.model ?? loadClaudeLlmPreference().model);
+  const [thinkingEffort, setThinkingEffort] = useState<ClaudeThinkingEffort | null>(() => draft?.thinkingEffort ?? loadClaudeLlmPreference().reasoningEffort);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(draft?.permissionMode ?? "bypassPermissions");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -140,9 +141,32 @@ export function NewGoalPanel({
   const hasMaterializedDraft = draftId !== null;
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
+    const nextThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort ?? "auto") ?? "auto";
     setModel(nextModel);
-    setThinkingEffort((current) => normalizeClaudeThinkingEffortForModel(nextModel, current ?? "auto"));
-  }, []);
+    setThinkingEffort(nextThinkingEffort);
+    saveClaudeLlmPreference({
+      model: nextModel,
+      reasoningEffort: nextThinkingEffort,
+    });
+  }, [thinkingEffort]);
+
+  const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
+    const normalizedThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(model, nextThinkingEffort) ?? "auto";
+    setThinkingEffort(normalizedThinkingEffort);
+    saveClaudeLlmPreference({
+      model: model ?? undefined,
+      reasoningEffort: normalizedThinkingEffort,
+    });
+  }, [model]);
+
+  useEffect(() => {
+    if (draft) return;
+    const preference = loadClaudeLlmPreference();
+    setModel(preference.model);
+    setThinkingEffort(preference.reasoningEffort);
+  }, [draft]);
 
   // Fetch prompt tags
   useEffect(() => {
@@ -1045,7 +1069,7 @@ export function NewGoalPanel({
         </button>
 
         <ModelPicker value={model} onChange={handleModelChange} />
-        <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={setThinkingEffort} />
+        <ThinkingEffortPicker value={thinkingEffort} model={model} onChange={handleThinkingEffortChange} />
         <PermissionPicker value={permissionMode} onChange={setPermissionMode} />
         <TagPicker value={selectedTag} onChange={setSelectedTag} />
 
