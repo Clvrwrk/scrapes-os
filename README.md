@@ -101,25 +101,25 @@ GSD is a project management framework for Claude Code. It's a separate install (
 
 **Install GSD:**
 ```bash
-npx get-shit-done-cc@latest
+npx -y @opengsd/get-shit-done-redux@latest --global --claude
 ```
 
-Use it when you're building something with multiple phases -- a product launch, a new feature, a migration. It handles planning, execution, verification, and session continuity.
+Use it when you're building something with multiple phases -- a product launch, a new feature, a migration. It handles planning, execution, verification, and session continuity. Agentic OS install and update scripts can detect legacy GSD packages/artifacts and ask before cleanup. They never remove `.planning/` folders.
 
 **Key commands:**
 
 | Command | What it does |
 |---------|-------------|
-| `/gsd:new-project` | Start a new project with deep context gathering |
-| `/gsd:plan-phase` | Plan a phase with research, task breakdown, and verification |
-| `/gsd:execute-phase` | Execute a plan with atomic commits and state tracking |
-| `/gsd:progress` | Check where you are and what's next |
-| `/gsd:debug` | Systematic debugging with persistent state |
-| `/gsd:quick` | Quick task with GSD guarantees (commits, tracking) |
-| `/gsd:verify-work` | Validate features through conversational testing |
-| `/gsd:pause-work` | Save context for resuming later |
-| `/gsd:resume-work` | Pick up where you left off |
-| `/gsd:help` | See all available commands |
+| `/gsd-new-project` | Start a new project with deep context gathering |
+| `/gsd-plan-phase` | Plan a phase with research, task breakdown, and verification |
+| `/gsd-execute-phase` | Execute a plan with atomic commits and state tracking |
+| `/gsd-progress` | Check where you are and what's next |
+| `/gsd-debug` | Systematic debugging with persistent state |
+| `/gsd-quick` | Quick task with GSD guarantees (commits, tracking) |
+| `/gsd-verify-work` | Validate features through conversational testing |
+| `/gsd-pause-work` | Save context for resuming later |
+| `/gsd-resume-work` | Pick up where you left off |
+| `/gsd-help` | See all available commands |
 
 GSD and Agentic OS complement each other. Agentic OS handles brand context and skill-driven content production. GSD handles structured project execution when you're building something with phases and milestones.
 

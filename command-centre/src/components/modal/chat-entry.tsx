@@ -1233,7 +1233,7 @@ function stripInjectedContext(text: string): string {
   // Remove project scoping system prompt prefix
   cleaned = cleaned.replace(/^You are scoping a Level \d+ (?:planned |GSD )?project[\s\S]*?(?:CRITICAL:.*\n)*/m, "");
   // Remove GSD project prompt prefix
-  cleaned = cleaned.replace(/^Run \/gsd:new-project[\s\S]*$/m, "");
+  cleaned = cleaned.replace(/^Run \/gsd-new-project[\s\S]*$/m, "");
   // Remove any remaining brand context blocks that weren't in the standard wrapper
   cleaned = cleaned.replace(/\n*--- (?:BRAND|USER) (?:&|AND) [\s\S]*?---\n*/gi, "");
   return cleaned.trim();

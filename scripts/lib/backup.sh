@@ -65,7 +65,7 @@ if collect_protected_changes; then
     fi
 fi
 
-git fetch origin "$UPSTREAM_BRANCH" --quiet 2>/dev/null || true
+git fetch "$UPDATE_REMOTE" "$UPSTREAM_BRANCH" --quiet 2>/dev/null || true
 
 # =========================================================
 # Step 5: Scan local skill modifications before pull

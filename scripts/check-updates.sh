@@ -38,17 +38,37 @@ echo ""
 printf "${CYAN}${BOLD}  Agentic OS — Checking for updates...${NC}\n"
 echo ""
 
-# ---------- Fetch latest from origin ----------
-info "Fetching from origin..."
-if ! git fetch origin main --quiet 2>/dev/null; then
-    fail "Could not reach origin. Check your internet connection."
+# ---------- Resolve the canonical update remote by URL ----------
+# Updates come from simonc602/agentic-os, never a user's backup fork.
+# Mirrors resolve_update_remote() in scripts/lib/common.sh.
+UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
+UPDATE_REMOTE=""
+for _remote in upstream origin $(git remote 2>/dev/null); do
+    [[ "$_remote" == "$UPDATE_REMOTE" ]] && continue
+    _url="$(git remote get-url "$_remote" 2>/dev/null || echo "")"
+    if [[ "$_url" == *"$UPSTREAM_SLUG"* ]]; then
+        UPDATE_REMOTE="$_remote"
+        break
+    fi
+done
+if [[ -z "$UPDATE_REMOTE" ]]; then
+    fail "No git remote points at the Agentic OS update repo ($UPSTREAM_SLUG)."
+    info "Add one with: git remote add upstream https://<TOKEN>@github.com/$UPSTREAM_SLUG.git"
+    exit 1
+fi
+
+# ---------- Fetch latest from the update remote ----------
+info "Fetching from $UPDATE_REMOTE ($UPSTREAM_SLUG)..."
+if ! git fetch "$UPDATE_REMOTE" "$UPSTREAM_BRANCH" --quiet 2>/dev/null; then
+    fail "Could not reach $UPDATE_REMOTE. Check your connection or access token."
     exit 1
 fi
 
 # ---------- Compare local vs remote ----------
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main 2>/dev/null) || {
-    fail "Could not find origin/main. Is the remote configured?"
+REMOTE=$(git rev-parse "$UPDATE_REMOTE/$UPSTREAM_BRANCH" 2>/dev/null) || {
+    fail "Could not find $UPDATE_REMOTE/$UPSTREAM_BRANCH. Is the remote configured?"
     exit 1
 }
 
@@ -59,7 +79,7 @@ if [[ "$LOCAL" == "$REMOTE" ]]; then
     exit 0
 fi
 
-BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+BEHIND=$(git rev-list --count "HEAD..$UPDATE_REMOTE/$UPSTREAM_BRANCH" 2>/dev/null || echo 0)
 
 if [[ "$BEHIND" -eq 0 ]]; then
     success "You're up to date! (local is ahead or diverged)"
@@ -68,10 +88,10 @@ if [[ "$BEHIND" -eq 0 ]]; then
 fi
 
 echo ""
-printf "${YELLOW}  You are ${BOLD}%s commit(s)${NC}${YELLOW} behind origin/main.${NC}\n" "$BEHIND"
+printf "${YELLOW}  You are ${BOLD}%s commit(s)${NC}${YELLOW} behind %s/%s.${NC}\n" "$BEHIND" "$UPDATE_REMOTE" "$UPSTREAM_BRANCH"
 echo ""
 info "New commits:"
-git log --oneline HEAD..origin/main | while IFS= read -r line; do
+git log --oneline "HEAD..$UPDATE_REMOTE/$UPSTREAM_BRANCH" | while IFS= read -r line; do
     printf "    ${BOLD}•${NC} %s\n" "$line"
 done
 echo ""

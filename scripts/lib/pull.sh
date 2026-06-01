@@ -8,7 +8,7 @@ info "Checking for updates..."
 echo ""
 
 MERGE_FAILED=false
-PULL_OUTPUT=$(git pull origin "$UPSTREAM_BRANCH" 2>&1) || MERGE_FAILED=true
+PULL_OUTPUT=$(git pull "$UPDATE_REMOTE" "$UPSTREAM_BRANCH" 2>&1) || MERGE_FAILED=true
 
 # --- Nuclear fallback: if merge fails for ANY reason, force-reset ---
 if $MERGE_FAILED; then
@@ -27,31 +27,13 @@ if $MERGE_FAILED; then
             cp "$OTHER_BACKUP_DIR/$file" "$REPO_ROOT/$file" 2>/dev/null || true
         done
 
-        echo ""
-        printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
-        printf "${YELLOW}${BOLD}  Authentication Failed${NC}\n"
-        printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
-        echo ""
-        warn "Your access token may have been rotated."
-        echo ""
-        info "To fix this:"
-        echo ""
-        echo "  1. Get the latest token from:"
-        printf "     ${CYAN}https://www.skool.com/scrapes/classroom/d1cfafed?md=552b0ba753df4c738843913fb3eb8312${NC}\n"
-        echo ""
-        echo "  2. Update your remote URL:"
-        printf "     ${BOLD}git remote set-url origin https://<NEW-TOKEN>@github.com/simonc602/agentic-os.git${NC}\n"
-        echo ""
-        echo "  3. Run this script again:"
-        printf "     ${BOLD}bash scripts/update.sh${NC}\n"
-        echo ""
-        info "Nothing was changed — your local files are untouched."
+        print_upstream_help "$UPDATE_REMOTE"
         exit 1
     fi
 
-    warn "Standard pull failed — resetting system files to origin/$UPSTREAM_BRANCH after backups."
+    warn "Standard pull failed — resetting system files to $UPDATE_REMOTE/$UPSTREAM_BRANCH after backups."
     git merge --abort 2>/dev/null || true
-    git reset --hard "origin/$UPSTREAM_BRANCH" >/dev/null 2>&1 || {
+    git reset --hard "$UPDATE_REMOTE/$UPSTREAM_BRANCH" >/dev/null 2>&1 || {
         for skill_name in "${MODIFIED_SKILLS[@]:-}"; do
             [[ -z "$skill_name" ]] && continue
             cp -r "$SKILL_BACKUP_DIR/$skill_name"/* "$REPO_ROOT/.claude/skills/$skill_name/" 2>/dev/null || true
@@ -63,7 +45,7 @@ if $MERGE_FAILED; then
         warn "Reset failed — restored local backups. Please inspect git status and try again."
         exit 1
     }
-    PULL_OUTPUT="${PULL_OUTPUT}"$'\n'"Reset to origin/$UPSTREAM_BRANCH after pull conflict."
+    PULL_OUTPUT="${PULL_OUTPUT}"$'\n'"Reset to $UPDATE_REMOTE/$UPSTREAM_BRANCH after pull conflict."
 fi
 
 # =========================================================

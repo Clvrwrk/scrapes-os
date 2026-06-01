@@ -318,26 +318,26 @@ class ProcessManager {
 
 
       if (isSlashCommand) {
-        // Slash command task — pass the description as-is (e.g. "Run /start-here", "Run /gsd:plan-phase 6")
+        // Slash command task — pass the description as-is (e.g. "Run /start-here", "Run /gsd-plan-phase 6")
         prompt = task.description!;
       } else if (gsdStep) {
         // Target the explicit phase number the user clicked so each GSD step
-        // button ends up running the right command (e.g. /gsd:plan-phase 3)
+        // button ends up running the right command (e.g. /gsd-plan-phase 3)
         // instead of the ambiguous "current phase".
         const phaseArg = gsdPhaseNumber != null ? ` ${gsdPhaseNumber}` : "";
         const gsdPrompts: Record<string, string> = {
-          discuss: `Run /gsd:discuss-phase${phaseArg}. Ask the user interactive questions — do NOT use --auto. Wait for their replies.`,
-          plan: `Run /gsd:plan-phase${phaseArg}.`,
-          execute: `Run /gsd:execute-phase${phaseArg}.`,
-          verify: `Run /gsd:verify-work${phaseArg}.`,
+          discuss: `Run /gsd-discuss-phase${phaseArg}. Ask the user interactive questions — do NOT use --auto. Wait for their replies.`,
+          plan: `Run /gsd-plan-phase${phaseArg}.`,
+          execute: `Run /gsd-execute-phase${phaseArg}.`,
+          verify: `Run /gsd-verify-work${phaseArg}.`,
         };
         prompt = gsdPrompts[gsdStep] || task.title;
       } else if (task.level === "project" && isTopLevelParent) {
         // Project scoping — interactive conversation with brand context
         prompt = this.buildProjectScopingPrompt(task, cwd);
       } else if (task.level === "gsd" && isTopLevelParent) {
-        // GSD project — run /gsd:new-project which handles interviews, research, and roadmap creation
-        prompt = `Run /gsd:new-project "${task.title}"${task.description ? `\n\nContext from user: ${task.description}` : ""}`;
+        // GSD project — run /gsd-new-project which handles interviews, research, and roadmap creation
+        prompt = `Run /gsd-new-project "${task.title}"${task.description ? `\n\nContext from user: ${task.description}` : ""}`;
       } else {
         if (task.projectSlug) {
           const briefPath = pathMod.join(cwd, "projects", "briefs", task.projectSlug, "brief.md");
@@ -384,13 +384,14 @@ class ProcessManager {
         contextSources.push({ type: "system", label: "Session Activity Summary" });
       }
 
-      // Prepend the session snapshot to every prompt so chat tasks, GSD tasks,
-      // scoping prompts, and wrap-up tasks all share the same baseline context
-      // (agent identity + user prefs + working memory + today's daily log) that
-      // a fresh Claude Code CLI session would have via the SessionStart hook.
+      // Inject the session snapshot via --append-system-prompt so it lands in
+      // the system prompt, not the user turn. Prepending to -p broke Claude CLI
+      // because the snapshot starts with "--- SESSION SNAPSHOT ---" and the CLI
+      // interprets leading "---" as an unknown option flag.
       const snapshot = this.readSessionSnapshot(cwd);
+      let snapshotContent = "";
       if (snapshot.content) {
-        prompt = `${snapshot.content}\n\n---\n\n${prompt}`;
+        snapshotContent = snapshot.content;
         for (const label of snapshot.loaded) {
           contextSources.push({ type: "system", label });
         }
@@ -425,7 +426,7 @@ class ProcessManager {
 
       // Spawn the turn. When resuming a parent-owned session, flag
       // Every task starts fresh — no parent session continuation.
-      this.spawnClaudeTurn(taskId, prompt, cwd, false);
+      this.spawnClaudeTurn(taskId, prompt, cwd, false, false, snapshotContent);
     } finally {
       this.startingTasks.delete(taskId);
     }
@@ -861,7 +862,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       title.includes("session") ||
       desc.includes("/wrap-up") ||
       desc.includes("meta-wrap-up") ||
-      desc.includes("/gsd:session-report") ||
+      desc.includes("/gsd-session-report") ||
       desc.includes("session summary") ||
       desc.includes("what did we do") ||
       desc.includes("what have we done")
@@ -1241,6 +1242,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     cwd: string,
     isContinuation: boolean,
     resumedFromReview: boolean = false,
+    snapshotContent: string = "",
   ): void {
     const cleanEnv = { ...process.env };
     delete cleanEnv.CLAUDECODE;
@@ -1275,6 +1277,13 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     }
     if (thinkingEffort && thinkingEffort !== "auto") {
       args.push("--effort", thinkingEffort);
+    }
+
+    let snapshotFilePath: string | null = null;
+    if (snapshotContent) {
+      snapshotFilePath = path.join(os.tmpdir(), `aios-snapshot-${taskId}-${Date.now()}.txt`);
+      fs.writeFileSync(snapshotFilePath, snapshotContent, "utf-8");
+      args.push("--append-system-prompt-file", snapshotFilePath);
     }
 
     // bypassPermissions needs the dangerously-skip flag
@@ -1397,6 +1406,13 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
           // Ignore temp-file cleanup failure
         }
       }
+      if (snapshotFilePath) {
+        try {
+          fs.unlinkSync(snapshotFilePath);
+        } catch {
+          // Ignore temp-file cleanup failure
+        }
+      }
       console.error(`[process-manager] Spawn failed:`, err);
       this.handleSpawnError(taskId, err);
       return;
@@ -1433,10 +1449,20 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       }
       permissionSettingsPath = null;
     };
+    const cleanupSnapshotFile = () => {
+      if (!snapshotFilePath) return;
+      try {
+        fs.unlinkSync(snapshotFilePath);
+      } catch {
+        // Ignore temp-file cleanup failure
+      }
+      snapshotFilePath = null;
+    };
 
     proc.on("error", (err) => {
       cleanupPermissionConfig();
       cleanupPermissionSettings();
+      cleanupSnapshotFile();
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         this.handleTaskError(taskId, "Claude CLI not found. Ensure 'claude' is installed and in your PATH.");
       } else {
@@ -1464,6 +1490,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     proc.on("close", (code) => {
       cleanupPermissionConfig();
       cleanupPermissionSettings();
+      cleanupSnapshotFile();
       // Check if this process is still the current one for this task.
       // If not (e.g., replyToTask killed it and spawned a new one), ignore this close.
       const currentSession = this.sessions.get(taskId);
@@ -1762,7 +1789,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       // Auto-create subtasks for parent tasks on completion
       if (!updated.parentId) {
         if (updated.level === "gsd") {
-          // GSD: sync phases from .planning/ROADMAP.md (created by /gsd:new-project)
+          // GSD: sync phases from .planning/ROADMAP.md (created by /gsd-new-project)
           this.autoSyncPhases(taskId);
         } else if (updated.level === "project") {
           // Project: extract deliverable subtasks from the conversation output

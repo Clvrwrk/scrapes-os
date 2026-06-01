@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/python.sh"
 source "$SCRIPT_DIR/lib/centre-shortcut.sh"
+source "$SCRIPT_DIR/lib/gsd-migration.sh"
 
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) REPO_ROOT="$(cygpath -m "$REPO_ROOT")" ;;
@@ -264,13 +265,21 @@ setup_github_repo() {
     read -r repo_name
     repo_name="${repo_name:-$default_repo}"
 
+    # If origin still points at the canonical repo, move it to `upstream` BEFORE
+    # creating the fork. Otherwise `gh repo create --remote=origin` collides with
+    # the existing origin remote and silently fails — leaving the user with no
+    # remote pointing at the canonical repo, which breaks update.sh.
+    if [[ $is_upstream -eq 1 ]]; then
+        if git -C "$REPO_ROOT" remote get-url upstream >/dev/null 2>&1; then
+            git -C "$REPO_ROOT" remote remove origin 2>/dev/null || true
+        else
+            git -C "$REPO_ROOT" remote rename origin upstream 2>/dev/null || true
+        fi
+    fi
+
     info "Creating private repo ${gh_user}/${repo_name}..."
 
     if gh repo create "${repo_name}" --private --source="$REPO_ROOT" --remote=origin 2>/dev/null; then
-        if [[ $is_upstream -eq 1 ]]; then
-            git -C "$REPO_ROOT" remote remove upstream 2>/dev/null || true
-            git -C "$REPO_ROOT" remote add upstream "$origin_url" 2>/dev/null || true
-        fi
         git -C "$REPO_ROOT" push -u origin main 2>/dev/null || {
             local current_branch
             current_branch="$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null || echo "main")"
@@ -282,6 +291,9 @@ setup_github_repo() {
     fi
 
     warn "Automatic repo creation failed."
+    if [[ $is_upstream -eq 1 ]]; then
+        warn "Canonical repo is now at the 'upstream' remote — updates will still work."
+    fi
     GITHUB_DECISION="failed"
     return 0
 }
@@ -291,12 +303,6 @@ install_gsd() {
     printf "${CYAN}${BOLD}GSD Project Framework${NC}\n"
     echo "  This installs the optional GSD commands for structured project work."
     echo ""
-
-    if ! ask_yes_no "Install GSD now?"; then
-        warn "Skipped GSD installation."
-        GSD_DECISION="skipped"
-        return 0
-    fi
 
     if [[ "$CRON_DRY_RUN" == "1" ]]; then
         warn "Dry run mode active - skipping GSD install."
@@ -310,22 +316,32 @@ install_gsd() {
         return 0
     fi
 
-    local gsd_global="$HOME/.claude/commands/gsd"
-    local gsd_local="$REPO_ROOT/.claude/commands/gsd"
-    if [[ -d "$gsd_global" ]] && [[ $(ls -1 "$gsd_global"/*.md 2>/dev/null | wc -l) -gt 10 ]]; then
-        success "GSD already installed globally"
-        GSD_DECISION="already-installed"
-    elif npx get-shit-done-cc --global --claude 2>/dev/null; then
-        success "GSD installed globally"
-        GSD_DECISION="installed"
-    else
-        warn "GSD installation failed. You can retry later with: npx get-shit-done-cc --global --claude"
-        GSD_DECISION="failed"
+    if ! command -v npx &>/dev/null; then
+        warn "npx is required for GSD. Install npm first."
+        GSD_DECISION="unavailable"
+        return 0
     fi
 
-    if [[ -d "$gsd_local" ]]; then
-        rm -rf "$gsd_local"
-        find "$REPO_ROOT/.claude/agents" -name "gsd-*.md" -delete 2>/dev/null || true
+    if agentic_os_gsd_offer_legacy_migration "$REPO_ROOT"; then
+        if [[ "$AGENTIC_OS_GSD_MIGRATION_RESULT" != "cleaned" ]]; then
+            if ! ask_yes_no "Install GSD now?"; then
+                warn "Skipped GSD installation."
+                GSD_DECISION="skipped"
+                return 0
+            fi
+        fi
+    else
+        warn "Legacy GSD left in place. Skipped GSD-redux install."
+        GSD_DECISION="migration-declined"
+        return 0
+    fi
+
+    if agentic_os_gsd_install_redux 2>/dev/null; then
+        success "GSD-redux installed globally"
+        GSD_DECISION="installed"
+    else
+        warn "GSD installation failed. You can retry later with: npx -y @opengsd/get-shit-done-redux@latest --global --claude"
+        GSD_DECISION="failed"
     fi
 
     return 0

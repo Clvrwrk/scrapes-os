@@ -47,6 +47,7 @@ import {
 } from "@/lib/permission-mode";
 import { loadGoalDrafts, removeGoalDraft, saveGoalDraft } from "@/lib/goal-drafts";
 import { normalizeClaudeThinkingEffortForModel } from "@/lib/claude-options";
+import { saveClaudeLlmPreference } from "@/lib/llm-preferences";
 import {
   clearActiveGoalDraftPanel,
   createGoalDraftPanelState,
@@ -1117,7 +1118,7 @@ function GsdPhasesOverview({
     (commandName: string, phaseNumber: number, e: React.MouseEvent) => {
       e.stopPropagation();
       if (onCommand) {
-        onCommand(`/gsd:${commandName} ${phaseNumber}`);
+        onCommand(`/gsd-${commandName} ${phaseNumber}`);
       }
     },
     [onCommand]
@@ -1403,7 +1404,7 @@ function GsdPhasesOverview({
                   >
                     <button
                       onClick={(e) => handleLaunchStep(commandName, phase.phaseNumber, e)}
-                      title={`Run /gsd:${commandName} ${phase.phaseNumber}`}
+                      title={`Run /gsd-${commandName} ${phase.phaseNumber}`}
                       style={{
                         fontSize: 10,
                         fontFamily: "var(--font-space-grotesk), Space Grotesk, sans-serif",
@@ -2335,16 +2336,26 @@ function DetailPanel({
   }, [activePermissionMode, executionPermissionMode, task.id, updateTask]);
 
   const handleModelChange = useCallback((nextModel: ClaudeModel | null) => {
-    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort);
+    const nextThinkingEffort = normalizeClaudeThinkingEffortForModel(nextModel, thinkingEffort) ?? "auto";
     setModel(nextModel);
     setThinkingEffort(nextThinkingEffort);
+    saveClaudeLlmPreference({
+      model: nextModel,
+      reasoningEffort: nextThinkingEffort,
+    });
     void updateTask(task.id, { model: nextModel, thinkingEffort: nextThinkingEffort });
   }, [task.id, thinkingEffort, updateTask]);
 
   const handleThinkingEffortChange = useCallback((nextThinkingEffort: ClaudeThinkingEffort) => {
-    setThinkingEffort(nextThinkingEffort);
-    void updateTask(task.id, { thinkingEffort: nextThinkingEffort });
-  }, [task.id, updateTask]);
+    const normalizedThinkingEffort =
+      normalizeClaudeThinkingEffortForModel(model, nextThinkingEffort) ?? "auto";
+    setThinkingEffort(normalizedThinkingEffort);
+    saveClaudeLlmPreference({
+      model: model ?? undefined,
+      reasoningEffort: normalizedThinkingEffort,
+    });
+    void updateTask(task.id, { thinkingEffort: normalizedThinkingEffort });
+  }, [model, task.id, updateTask]);
 
   const handleReply = async () => {
     const trimmed = replyText.trim();

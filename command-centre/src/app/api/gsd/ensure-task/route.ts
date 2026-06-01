@@ -249,7 +249,7 @@ export async function POST(request: Request) {
         const task: Task = {
           id: crypto.randomUUID(),
           title,
-          description: `Run /gsd:${step === "execute" ? "execute-phase" : step === "verify" ? "verify-work" : step === "plan" ? "plan-phase" : "discuss-phase"} for Phase ${phase.number}: ${phase.name}`,
+          description: `Run /gsd-${step === "execute" ? "execute-phase" : step === "verify" ? "verify-work" : step === "plan" ? "plan-phase" : "discuss-phase"} for Phase ${phase.number}: ${phase.name}`,
           status: targetStatus as Task["status"],
           level: "task",
           parentId: parentTask.id,

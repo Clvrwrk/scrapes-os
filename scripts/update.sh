@@ -19,6 +19,27 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
     cd "$BOOTSTRAP_REPO_ROOT"
 
     BOOTSTRAP_UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
+    BOOTSTRAP_UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+
+    # Resolve the canonical remote by URL — never a user's backup fork.
+    # Mirrors resolve_update_remote() in scripts/lib/common.sh, which isn't
+    # available yet because this block bootstraps the lib files themselves.
+    BOOTSTRAP_REMOTE=""
+    for bootstrap_remote in upstream origin $(git remote 2>/dev/null); do
+        [[ "$bootstrap_remote" == "$BOOTSTRAP_REMOTE" ]] && continue
+        bootstrap_url="$(git remote get-url "$bootstrap_remote" 2>/dev/null || echo "")"
+        if [[ "$bootstrap_url" == *"$BOOTSTRAP_UPSTREAM_SLUG"* ]]; then
+            BOOTSTRAP_REMOTE="$bootstrap_remote"
+            break
+        fi
+    done
+    if [[ -z "$BOOTSTRAP_REMOTE" ]]; then
+        echo "No git remote points at the Agentic OS update repo ($BOOTSTRAP_UPSTREAM_SLUG)."
+        echo "Add one, then run bash scripts/update.sh again:"
+        echo "  git remote add upstream https://<TOKEN>@github.com/$BOOTSTRAP_UPSTREAM_SLUG.git"
+        exit 1
+    fi
+
     BOOTSTRAP_REQUIRED_FILES=(
         "scripts/update.sh"
         "scripts/lib/common.sh"
@@ -27,6 +48,7 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
         "scripts/lib/pull.sh"
         "scripts/lib/merge.sh"
         "scripts/lib/catalog.sh"
+        "scripts/lib/gsd-migration.sh"
         "scripts/lib/synthesize.py"
         "scripts/rollback.sh"
         "scripts/session-end.sh"
@@ -38,10 +60,12 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
     done
 
     if $BOOTSTRAP_NEEDS_BUNDLE; then
-        echo "Fetching update dependencies..."
-        git fetch origin "$BOOTSTRAP_UPSTREAM_BRANCH" --quiet 2>/dev/null || {
-            echo "Could not fetch origin/$BOOTSTRAP_UPSTREAM_BRANCH."
-            echo "Please check your remote access and run bash scripts/update.sh again."
+        echo "Fetching update dependencies from $BOOTSTRAP_REMOTE ($BOOTSTRAP_UPSTREAM_SLUG)..."
+        git fetch "$BOOTSTRAP_REMOTE" "$BOOTSTRAP_UPSTREAM_BRANCH" --quiet 2>/dev/null || {
+            echo "Could not fetch $BOOTSTRAP_REMOTE/$BOOTSTRAP_UPSTREAM_BRANCH."
+            echo "Your access token may have been rotated. Update the remote URL:"
+            echo "  git remote set-url $BOOTSTRAP_REMOTE https://<NEW-TOKEN>@github.com/$BOOTSTRAP_UPSTREAM_SLUG.git"
+            echo "Then run bash scripts/update.sh again."
             exit 1
         }
 
@@ -51,8 +75,8 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
 
         for BOOTSTRAP_FILE in "${BOOTSTRAP_REQUIRED_FILES[@]}"; do
             mkdir -p "$BOOTSTRAP_TMP_DIR/$(dirname "$BOOTSTRAP_FILE")"
-            git show "origin/$BOOTSTRAP_UPSTREAM_BRANCH:$BOOTSTRAP_FILE" > "$BOOTSTRAP_TMP_DIR/$BOOTSTRAP_FILE" 2>/dev/null || {
-                echo "Could not download $BOOTSTRAP_FILE from origin/$BOOTSTRAP_UPSTREAM_BRANCH."
+            git show "$BOOTSTRAP_REMOTE/$BOOTSTRAP_UPSTREAM_BRANCH:$BOOTSTRAP_FILE" > "$BOOTSTRAP_TMP_DIR/$BOOTSTRAP_FILE" 2>/dev/null || {
+                echo "Could not download $BOOTSTRAP_FILE from $BOOTSTRAP_REMOTE/$BOOTSTRAP_UPSTREAM_BRANCH."
                 echo "Please check your remote branch and run bash scripts/update.sh again."
                 exit 1
             }
@@ -95,6 +119,13 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
     exit 1
 fi
 
+# Always update from the canonical repo — never a user's backup fork.
+UPDATE_REMOTE="$(resolve_update_remote || true)"
+if [[ -z "$UPDATE_REMOTE" ]]; then
+    print_upstream_help
+    exit 1
+fi
+
 echo ""
 printf "${CYAN}${BOLD}"
 cat << 'BANNER'
@@ -125,6 +156,10 @@ source "$UPDATE_LIB_DIR/pull.sh"
 
 # Step 2 of 4: skill review + other file review + restore stash
 source "$UPDATE_LIB_DIR/merge.sh"
+
+# Legacy GSD migration must run after the safe pull/merge work and before the final summary.
+source "$UPDATE_LIB_DIR/gsd-migration.sh"
+agentic_os_gsd_run_update_migration "$REPO_ROOT" || true
 
 # Steps 3–4: gate new skills, catalog, GSD, summary, What's New
 source "$UPDATE_LIB_DIR/catalog.sh"
