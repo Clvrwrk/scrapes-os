@@ -384,13 +384,14 @@ class ProcessManager {
         contextSources.push({ type: "system", label: "Session Activity Summary" });
       }
 
-      // Prepend the session snapshot to every prompt so chat tasks, GSD tasks,
-      // scoping prompts, and wrap-up tasks all share the same baseline context
-      // (agent identity + user prefs + working memory + today's daily log) that
-      // a fresh Claude Code CLI session would have via the SessionStart hook.
+      // Inject the session snapshot via --append-system-prompt so it lands in
+      // the system prompt, not the user turn. Prepending to -p broke Claude CLI
+      // because the snapshot starts with "--- SESSION SNAPSHOT ---" and the CLI
+      // interprets leading "---" as an unknown option flag.
       const snapshot = this.readSessionSnapshot(cwd);
+      let snapshotContent = "";
       if (snapshot.content) {
-        prompt = `${snapshot.content}\n\n---\n\n${prompt}`;
+        snapshotContent = snapshot.content;
         for (const label of snapshot.loaded) {
           contextSources.push({ type: "system", label });
         }
@@ -425,7 +426,7 @@ class ProcessManager {
 
       // Spawn the turn. When resuming a parent-owned session, flag
       // Every task starts fresh — no parent session continuation.
-      this.spawnClaudeTurn(taskId, prompt, cwd, false);
+      this.spawnClaudeTurn(taskId, prompt, cwd, false, false, snapshotContent);
     } finally {
       this.startingTasks.delete(taskId);
     }
@@ -1241,6 +1242,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     cwd: string,
     isContinuation: boolean,
     resumedFromReview: boolean = false,
+    snapshotContent: string = "",
   ): void {
     const cleanEnv = { ...process.env };
     delete cleanEnv.CLAUDECODE;
@@ -1275,6 +1277,13 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     }
     if (thinkingEffort && thinkingEffort !== "auto") {
       args.push("--effort", thinkingEffort);
+    }
+
+    let snapshotFilePath: string | null = null;
+    if (snapshotContent) {
+      snapshotFilePath = path.join(os.tmpdir(), `aios-snapshot-${taskId}-${Date.now()}.txt`);
+      fs.writeFileSync(snapshotFilePath, snapshotContent, "utf-8");
+      args.push("--append-system-prompt-file", snapshotFilePath);
     }
 
     // bypassPermissions needs the dangerously-skip flag
@@ -1397,6 +1406,13 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
           // Ignore temp-file cleanup failure
         }
       }
+      if (snapshotFilePath) {
+        try {
+          fs.unlinkSync(snapshotFilePath);
+        } catch {
+          // Ignore temp-file cleanup failure
+        }
+      }
       console.error(`[process-manager] Spawn failed:`, err);
       this.handleSpawnError(taskId, err);
       return;
@@ -1433,10 +1449,20 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
       }
       permissionSettingsPath = null;
     };
+    const cleanupSnapshotFile = () => {
+      if (!snapshotFilePath) return;
+      try {
+        fs.unlinkSync(snapshotFilePath);
+      } catch {
+        // Ignore temp-file cleanup failure
+      }
+      snapshotFilePath = null;
+    };
 
     proc.on("error", (err) => {
       cleanupPermissionConfig();
       cleanupPermissionSettings();
+      cleanupSnapshotFile();
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         this.handleTaskError(taskId, "Claude CLI not found. Ensure 'claude' is installed and in your PATH.");
       } else {
@@ -1464,6 +1490,7 @@ Keep subtasks high-level — one per major deliverable, not every granular step.
     proc.on("close", (code) => {
       cleanupPermissionConfig();
       cleanupPermissionSettings();
+      cleanupSnapshotFile();
       // Check if this process is still the current one for this task.
       // If not (e.g., replyToTask killed it and spawned a new one), ignore this close.
       const currentSession = this.sessions.get(taskId);

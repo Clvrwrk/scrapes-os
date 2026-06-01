@@ -39,3 +39,9 @@
 # Cron runtime (logs and status are generated at runtime)
 cron/logs/
 cron/status/
+
+# Raw session transcripts (indexed by memsearch, not committed)
+context/transcripts/*.md
+
+# memsearch shadow index (rebuildable — do not commit)
+.memsearch/

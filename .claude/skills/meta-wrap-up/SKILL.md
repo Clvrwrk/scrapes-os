@@ -190,6 +190,17 @@ Promote durable facts from the session into `context/MEMORY.md` (the curated scr
 
 Report usage in the session summary under the **Memory** block: `MEMORY.md: {N}/2,500 chars ({pct}%)`.
 
+### 3h: Memory Coverage Stats
+
+Run: `bash scripts/lib/memory-meta.sh`
+
+Add the output to the session summary under a **Memory coverage** block:
+- MEMORY.md: {N}/2,500 chars ({pct}%)
+- Session logs: {first_date} to {last_date} ({N} days)
+- Gaps: {any gaps >2 days, or "No gaps detected"}
+
+Skip silently if the script is not found.
+
 ---
 
 ## Step 4: Commit & Push
