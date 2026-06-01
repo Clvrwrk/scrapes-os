@@ -252,14 +252,23 @@ function Setup-GitHubRepo {
         $repoName = $defaultRepo
     }
 
+    # If origin still points at the canonical repo, move it to `upstream` BEFORE
+    # creating the fork. Otherwise `gh repo create --remote=origin` collides with
+    # the existing origin remote and silently fails — leaving the user with no
+    # remote pointing at the canonical repo, which breaks update.sh.
+    if ($isUpstream) {
+        & git -C $RepoRoot remote get-url upstream *> $null
+        if ($LASTEXITCODE -eq 0) {
+            & git -C $RepoRoot remote remove origin 2>$null
+        }
+        else {
+            & git -C $RepoRoot remote rename origin upstream 2>$null
+        }
+    }
+
     Info "Creating private repo $ghUser/$repoName..."
     & gh repo create $repoName --private --source=$RepoRoot --remote=origin 2>$null
     if ($LASTEXITCODE -eq 0) {
-        if ($isUpstream) {
-            & git -C $RepoRoot remote remove upstream 2>$null
-            & git -C $RepoRoot remote add upstream $originUrl 2>$null
-        }
-
         & git -C $RepoRoot push -u origin main 2>$null
         if ($LASTEXITCODE -ne 0) {
             $currentBranch = (& git -C $RepoRoot branch --show-current 2>$null | Out-String).Trim()
@@ -275,6 +284,9 @@ function Setup-GitHubRepo {
     }
 
     Warn "Automatic repo creation failed."
+    if ($isUpstream) {
+        Warn "Canonical repo is now at the 'upstream' remote — updates will still work."
+    }
     $script:GitHubDecision = "failed"
 }
 

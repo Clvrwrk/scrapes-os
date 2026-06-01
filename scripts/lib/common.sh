@@ -32,6 +32,57 @@ cd "$REPO_ROOT"
 # ---------- Upstream branch ----------
 UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
 
+# ---------- Canonical upstream ----------
+# Updates must ALWAYS come from the canonical Agentic OS repo, never from a
+# user's backup fork. In the fork workflow `origin` is the user's private fork
+# and the canonical repo lives at `upstream`, so we resolve the update remote by
+# URL rather than trusting a fixed remote name.
+UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+
+# Echo the name of the first remote whose URL points at the canonical repo.
+# Preference order: upstream, origin, then any other remote. Returns 1 if none.
+resolve_update_remote() {
+    local preferred="upstream origin" remote url seen=" "
+    for remote in $preferred $(git remote 2>/dev/null); do
+        case "$seen" in *" $remote "*) continue ;; esac
+        seen="$seen$remote "
+        git remote get-url "$remote" >/dev/null 2>&1 || continue
+        url=$(git remote get-url "$remote" 2>/dev/null)
+        case "$url" in *"$UPSTREAM_SLUG"*) printf '%s\n' "$remote"; return 0 ;; esac
+    done
+    return 1
+}
+
+# Print copy-pasteable guidance for pointing a remote at the canonical repo.
+# Used both when no canonical remote is configured and when a fetch auth fails.
+print_upstream_help() {
+    local remote="${1:-upstream}"
+    echo ""
+    printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    printf "${YELLOW}${BOLD}  Can't reach the Agentic OS update repo${NC}\n"
+    printf "${YELLOW}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    echo ""
+    warn "Updates come from ${BOLD}${UPSTREAM_SLUG}${NC}, but no working remote points there."
+    warn "Your access token may also have been rotated."
+    echo ""
+    info "To fix this:"
+    echo ""
+    echo "  1. Get the latest token from:"
+    printf "     ${CYAN}https://www.skool.com/scrapes/classroom/d1cfafed?md=552b0ba753df4c738843913fb3eb8312${NC}\n"
+    echo ""
+    echo "  2. Point a remote at the update repo:"
+    if git remote get-url "$remote" >/dev/null 2>&1; then
+        printf "     ${BOLD}git remote set-url %s https://<NEW-TOKEN>@github.com/%s.git${NC}\n" "$remote" "$UPSTREAM_SLUG"
+    else
+        printf "     ${BOLD}git remote add upstream https://<NEW-TOKEN>@github.com/%s.git${NC}\n" "$UPSTREAM_SLUG"
+    fi
+    echo ""
+    echo "  3. Run this script again:"
+    printf "     ${BOLD}bash scripts/update.sh${NC}\n"
+    echo ""
+    info "Nothing was changed — your local files are untouched."
+}
+
 # ---------- Key paths ----------
 BACKUP_DIR="$REPO_ROOT/.backup"
 CATALOG="$REPO_ROOT/.claude/skills/_catalog/catalog.json"
