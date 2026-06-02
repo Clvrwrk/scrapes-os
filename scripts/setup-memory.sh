@@ -208,7 +208,7 @@ windows_watch_disabled() {
     local user_value
     user_value="$(
         powershell.exe -NoProfile -NonInteractive -Command "[Environment]::GetEnvironmentVariable('MEMSEARCH_NO_WATCH','User')" 2>/dev/null |
-        tr -d '\r'
+        tr -d '\r' || true
     )"
     [[ "$user_value" == "1" ]]
 }
