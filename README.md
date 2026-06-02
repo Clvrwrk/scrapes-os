@@ -188,7 +188,7 @@ On macOS/Linux it uses local Milvus Lite. On native Windows it uses a free [Zill
 
 On native Windows, setup disables the real-time `memsearch watch` background helper with the Windows User environment variable `MEMSEARCH_NO_WATCH=1`. This prevents orphaned watcher processes from keeping project folders open. Restart Claude Code, Codex, and open terminals after setup so they inherit the setting.
 
-Windows memory search still works. Setup runs an initial index, and later refreshes come from the managed Agentic OS cron system: keep Command Centre open, or start the existing daemon with `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-crons.ps1`. To refresh manually, run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/ .memsearch/memory/`.
+Windows memory search still works. Setup runs an initial index, and later refreshes come from the managed Agentic OS cron system: keep Command Centre open, or start the existing daemon with `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-crons.ps1`. To refresh manually, run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/` (append `.memsearch/memory/` if it exists).
 
 If old watcher processes are already stuck, clear them with:
 
