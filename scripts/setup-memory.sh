@@ -535,7 +535,12 @@ install_codex_plugin() {
 
     info "Fetching official MemSearch Codex installer..."
     if [[ -d "$cache_dir/.git" ]]; then
-        git -C "$cache_dir" pull --ff-only
+        # A failed pull (diverged cache, offline) must not abort setup under
+        # set -e. Fall back to the existing cached copy, which the installer
+        # existence check below still validates.
+        if ! git -C "$cache_dir" pull --ff-only >/dev/null 2>&1; then
+            warn "Could not update the cached MemSearch installer; using the existing copy."
+        fi
     elif [[ -e "$cache_dir" ]]; then
         fail "MemSearch cache path exists but is not a git repo: $cache_dir"
         return 1
