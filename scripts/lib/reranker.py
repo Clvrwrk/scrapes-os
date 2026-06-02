@@ -118,7 +118,15 @@ def rerank(results: list, query: str, cfg: dict) -> list:
         except (TypeError, ValueError):
             # Tolerate malformed scores rather than crashing the recall path.
             raw_score = 0.0
-        source = item.get("source_path", "") or item.get("path", "") or ""
+        # memsearch emits the file path under "source"; keep "source_path"/"path"
+        # as fallbacks for other producers. Without "source" the reranker reads
+        # an empty path and silently applies no authority or recency weighting.
+        source = (
+            item.get("source_path", "")
+            or item.get("path", "")
+            or item.get("source", "")
+            or ""
+        )
 
         # Stage 1 — Authority Boost
         auth = authority_multiplier(source, weights)
