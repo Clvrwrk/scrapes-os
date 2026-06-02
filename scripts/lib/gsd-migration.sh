@@ -60,6 +60,26 @@ agentic_os_gsd_config_dirs() {
     } | awk 'NF && !seen[$0]++'
 }
 
+agentic_os_gsd_redux_version() {
+    local repo_root="$1"
+    local config_dir
+    local version_file
+
+    # get-shit-done/VERSION is the marker that Redux is installed — the same
+    # signal the update hook trusts (.claude/hooks/gsd-check-update.js).
+    while IFS= read -r config_dir; do
+        [[ -n "$config_dir" ]] || continue
+        version_file="$config_dir/get-shit-done/VERSION"
+        if [[ -f "$version_file" ]]; then
+            tr -d '[:space:]' < "$version_file"
+            printf "\n"
+            return 0
+        fi
+    done < <(agentic_os_gsd_config_dirs "$repo_root")
+
+    return 1
+}
+
 agentic_os_gsd_detect_legacy_npm() {
     local repo_root="$1"
     local package
@@ -89,21 +109,36 @@ agentic_os_gsd_detect_legacy_files() {
     local repo_root="$1"
     local config_dir
     local file
+    local redux_present
 
     while IFS= read -r config_dir; do
         [[ -n "$config_dir" ]] || continue
 
+        # Redux's runtime lives in get-shit-done/ with a VERSION file. Its presence
+        # means this config dir holds a healthy Redux install, so Redux-owned
+        # artifacts here must not be flagged as legacy. This is the same marker the
+        # update hook trusts (.claude/hooks/gsd-check-update.js).
+        redux_present=0
+        [[ -f "$config_dir/get-shit-done/VERSION" ]] && redux_present=1
+
+        # Old command-bundle layout — never produced by Redux.
         if [[ -d "$config_dir/commands/gsd" ]]; then
             printf "file:%s\n" "$config_dir/commands/gsd"
         fi
-        if [[ -d "$config_dir/get-shit-done" ]]; then
+
+        # A bare get-shit-done/ without a VERSION file is the pre-Redux runtime.
+        if [[ -d "$config_dir/get-shit-done" && "$redux_present" -eq 0 ]]; then
             printf "file:%s\n" "$config_dir/get-shit-done"
         fi
 
-        for file in "$config_dir"/agents/gsd-*.md "$config_dir"/commands/gsd-*.md; do
-            [[ -e "$file" ]] || continue
-            printf "file:%s\n" "$file"
-        done
+        # Loose gsd-*.md command/agent files: Redux installs agents/gsd-*.md, so
+        # only treat these as legacy when Redux is not installed in this config dir.
+        if [[ "$redux_present" -eq 0 ]]; then
+            for file in "$config_dir"/agents/gsd-*.md "$config_dir"/commands/gsd-*.md; do
+                [[ -e "$file" ]] || continue
+                printf "file:%s\n" "$file"
+            done
+        fi
     done < <(agentic_os_gsd_config_dirs "$repo_root")
 }
 

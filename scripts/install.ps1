@@ -324,10 +324,18 @@ function Install-Gsd {
         return
     }
 
-    if ($migrationResult -ne "cleaned" -and -not (Read-YesNo -Prompt "Install GSD now?")) {
-        Warn "Skipped GSD installation."
-        $script:GsdDecision = "skipped"
-        return
+    if ($migrationResult -ne "cleaned") {
+        $reduxVersion = Get-AgenticOsGsdReduxVersion -RepoRoot $RepoRoot
+        if ($reduxVersion) {
+            Success "GSD-redux already installed (v$reduxVersion)"
+            $script:GsdDecision = "already-installed"
+            return
+        }
+        if (-not (Read-YesNo -Prompt "Install GSD now?")) {
+            Warn "Skipped GSD installation."
+            $script:GsdDecision = "skipped"
+            return
+        }
     }
 
     if (Install-AgenticOsGsdRedux) {
