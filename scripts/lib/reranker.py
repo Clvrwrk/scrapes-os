@@ -113,7 +113,11 @@ def rerank(results: list, query: str, cfg: dict) -> list:
 
     scored = []
     for item in results:
-        raw_score = float(item.get("score", 0.0))
+        try:
+            raw_score = float(item.get("score", 0.0))
+        except (TypeError, ValueError):
+            # Tolerate malformed scores rather than crashing the recall path.
+            raw_score = 0.0
         source = item.get("source_path", "") or item.get("path", "") or ""
 
         # Stage 1 — Authority Boost
