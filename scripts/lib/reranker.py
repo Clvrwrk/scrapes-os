@@ -110,16 +110,19 @@ def rerank(results: list, query: str, cfg: dict) -> list:
         scored.append({**item, "_s1": s1, "_s2": s2})
 
     # Stage 3 — Floor-Ratio Gating
+    # Drop low-relevance noise: anything scoring below floor_ratio of the top
+    # result is gated out. The top result always survives (floor_ratio < 1).
     top_s2 = max(x["_s2"] for x in scored) if scored else 1.0
     threshold = top_s2 * floor_ratio
 
     final = []
     for item in scored:
         s2 = item["_s2"]
-        final_score = s2  # gated: no further boost when below threshold
+        if s2 < threshold:
+            continue
         final.append({
             **{k: v for k, v in item.items() if not k.startswith("_")},
-            "final_score": round(final_score, 6),
+            "final_score": round(s2, 6),
             "reranked": True,
         })
 
