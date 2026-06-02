@@ -418,14 +418,20 @@ ensure_backend_config() {
             ok "Saved Zilliz values to .env"
         fi
 
-        memsearch config set milvus.uri "$zilliz_uri" >/dev/null
-        memsearch config set milvus.token "$zilliz_token" >/dev/null
+        if ! memsearch config set milvus.uri "$zilliz_uri" >/dev/null \
+            || ! memsearch config set milvus.token "$zilliz_token" >/dev/null; then
+            fail "Could not write Zilliz backend config to memsearch."
+            return 1
+        fi
         ok "Zilliz Cloud backend configured"
     else
         ok "Using local Milvus Lite backend"
     fi
 
-    memsearch config set embedding.provider onnx >/dev/null
+    if ! memsearch config set embedding.provider onnx >/dev/null; then
+        fail "Could not configure ONNX embeddings."
+        return 1
+    fi
     ok "ONNX embeddings configured"
 }
 
