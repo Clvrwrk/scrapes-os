@@ -36,6 +36,16 @@ export const SCRIPT_REGISTRY: ScriptDefinition[] = [
     longRunning: true,
     helpUrl: "https://www.skool.com/scrapes/classroom/d1cfafed?md=b4a2a68f8f8849b4addcead7bf83ade7",
   },
+  {
+    id: "memory-setup",
+    label: "Memory Setup",
+    description: "Set up recommended searchable memory with MemSearch for Claude Code, Codex, or both",
+    file: "setup-memory.sh",
+    args: [],
+    destructive: false,
+    longRunning: true,
+    helpUrl: "https://zilliztech.github.io/memsearch/",
+  },
 ];
 
 export function getScriptById(id: string): ScriptDefinition | undefined {

@@ -262,6 +262,73 @@ fi
 # =========================================================
 GSD_STATUS="${AGENTIC_OS_GSD_UPDATE_STATUS:-}"
 
+record_memory_setup_decision() {
+    local decision="$1"
+    local helper="${REPO_ROOT}/scripts/launcher-bootstrap.py"
+
+    [[ -f "$helper" ]] || return 0
+    "${PYTHON_CMD[@]}" "$helper" --repo-root "$REPO_ROOT" state-mark-memory --memory "$decision" >/dev/null 2>&1 || true
+}
+
+offer_memory_setup_after_update() {
+    local setup_script="${REPO_ROOT}/scripts/setup-memory.sh"
+    local reply=""
+    local exit_code=0
+
+    [[ -f "$setup_script" ]] || return 0
+    [[ "${AGENTIC_OS_SKIP_MEMORY_PROMPT:-0}" != "1" ]] || return 0
+
+    if bash "$setup_script" --check >/dev/null 2>&1; then
+        record_memory_setup_decision "configured"
+        return 0
+    fi
+
+    # Keep automated update runs non-blocking. The setup can still be run manually.
+    if [[ ! -t 0 ]]; then
+        echo ""
+        info "Searchable memory is available. Run ${BOLD}bash scripts/setup-memory.sh${NC} when you are ready."
+        return 0
+    fi
+
+    echo ""
+    printf "${CYAN}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    printf "${CYAN}${BOLD}  Recommended: Searchable Memory${NC}\n"
+    printf "${CYAN}${BOLD}═══════════════════════════════════════════════${NC}\n"
+    echo ""
+    echo "  MemSearch lets Agentic OS search older sessions, transcripts,"
+    echo "  learnings, and brand context. Claude Code is the recommended default,"
+    echo "  but Codex and Claude Code + Codex are also supported."
+    echo ""
+    printf "  Set it up now? ${BOLD}[Y/n]${NC} "
+    if ! read -r reply; then
+        reply="N"
+    fi
+    reply="${reply:-Y}"
+
+    if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+        warn "Skipped searchable memory setup. The update flow will offer it again next time."
+        echo "  Semantic recall, older memory search, transcript drill-down,"
+        echo "  expanded search, and stronger citations remain unavailable until enabled."
+        record_memory_setup_decision "skipped-update"
+        return 0
+    fi
+
+    set +e
+    bash "$setup_script"
+    exit_code=$?
+    set -e
+
+    if [[ $exit_code -eq 0 ]]; then
+        record_memory_setup_decision "configured"
+    elif [[ $exit_code -eq 3 ]]; then
+        record_memory_setup_decision "skipped-confirmation"
+    else
+        record_memory_setup_decision "failed"
+    fi
+
+    return 0
+}
+
 # =========================================================
 # STEP 4 OF 4: Summary
 # =========================================================
@@ -272,11 +339,18 @@ printf "${CYAN}${BOLD}═══════════════════�
 echo ""
 
 NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+NEW_VERSION="${NEW_VERSION:-$(read_agentic_os_version)}"
 if $HAS_UPSTREAM_CHANGES; then
     if [[ -n "$OLD_TAG" ]] && [[ -n "$NEW_TAG" ]] && [[ "$OLD_TAG" != "$NEW_TAG" ]]; then
         ok "Main repo: updated ${OLD_TAG} → ${NEW_TAG}"
     else
         ok "Main repo: pulled ${COMMIT_COUNT} new commit(s)"
+    fi
+
+    if [[ "${OLD_VERSION:-unknown}" != "$NEW_VERSION" ]]; then
+        ok "Version: $(format_agentic_os_version "${OLD_VERSION:-unknown}") -> $(format_agentic_os_version "$NEW_VERSION")"
+    else
+        ok "Version: still $(format_agentic_os_version "$NEW_VERSION")"
     fi
 
     CHANGES=$(git log --oneline "${OLD_HEAD}..${NEW_HEAD}" 2>/dev/null | sed 's/^/      /')
@@ -285,6 +359,7 @@ if $HAS_UPSTREAM_CHANGES; then
     fi
 else
     ok "Main repo: already up to date"
+    ok "Version: $(format_agentic_os_version "$NEW_VERSION") already installed"
 fi
 
 if [[ ${#USER_CREATED_SKILLS[@]} -gt 0 ]]; then
@@ -318,6 +393,8 @@ if [[ -n "$GSD_STATUS" ]]; then
     echo ""
     ok "GSD framework: ${GSD_STATUS}"
 fi
+
+offer_memory_setup_after_update
 
 # =========================================================
 # What's New — compare old vs new catalog.json
@@ -439,6 +516,13 @@ fi
 echo ""
 ok "Your data is safe:"
 printf "    brand_context/  ${GREEN}✓${NC}   .env  ${GREEN}✓${NC}   context/  ${GREEN}✓${NC}   projects/  ${GREEN}✓${NC}\n"
+
+echo ""
+if $HAS_UPSTREAM_CHANGES; then
+    ok "You are now on Agentic OS $(format_agentic_os_version "$NEW_VERSION")."
+else
+    ok "You already have Agentic OS $(format_agentic_os_version "$NEW_VERSION")."
+fi
 
 # ---------- Auto-sync to client folders ----------
 if [[ -d "${REPO_ROOT}/clients" ]]; then

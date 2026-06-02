@@ -20,11 +20,14 @@ esac
 
 HELPER_SCRIPT="$SCRIPT_DIR/launcher-bootstrap.py"
 SETUP_SCRIPT="$SCRIPT_DIR/setup.sh"
+MEMORY_SETUP_SCRIPT="$SCRIPT_DIR/setup-memory.sh"
 CRON_DRY_RUN="${AGENTIC_OS_CRON_DRY_RUN:-0}"
+AGENTIC_OS_VERSION="$(cat "$REPO_ROOT/VERSION" 2>/dev/null || echo "unknown")"
 
 if is_windows_shell && command -v cygpath >/dev/null 2>&1; then
     HELPER_SCRIPT="$(cygpath -m "$HELPER_SCRIPT")"
     SETUP_SCRIPT="$(cygpath -m "$SETUP_SCRIPT")"
+    MEMORY_SETUP_SCRIPT="$(cygpath -m "$MEMORY_SETUP_SCRIPT")"
 fi
 
 MODE="guided"
@@ -75,6 +78,7 @@ fail()    { printf "${RED}  ✗ %s${NC}\n" "$1"; }
 GITHUB_DECISION="unknown"
 GSD_DECISION="unknown"
 LAUNCHER_DECISION="unknown"
+MEMORY_DECISION="unknown"
 
 run_helper() {
     "${PYTHON_CMD[@]}" "$HELPER_SCRIPT" --repo-root "$REPO_ROOT" "$@"
@@ -118,6 +122,11 @@ print_banner() {
     ╚══════════════════════════════════════════════╝
 BANNER
     printf "${NC}"
+    if [[ "$AGENTIC_OS_VERSION" == "unknown" ]]; then
+        printf "    ${DIM}Agentic OS version unknown${NC}\n"
+    else
+        printf "    ${DIM}Agentic OS v%s${NC}\n" "$AGENTIC_OS_VERSION"
+    fi
     echo ""
 }
 
@@ -194,6 +203,88 @@ run_dependency_setup() {
 
     info "Checking system dependencies..."
     bash "$SETUP_SCRIPT" --silent || true
+    return 0
+}
+
+setup_searchable_memory() {
+    echo ""
+    printf "${CYAN}${BOLD}Searchable Memory${NC}\n"
+    echo "  This is optional, but recommended. It lets Agentic OS search older"
+    echo "  sessions, transcripts, learnings, and brand context."
+    echo "  Claude Code is the recommended default because Agentic OS is Claude-first."
+    echo ""
+
+    if [[ "$CRON_DRY_RUN" == "1" ]]; then
+        warn "Dry run mode active - skipping searchable memory setup."
+        MEMORY_DECISION="skipped-dry-run"
+        return 0
+    fi
+
+    if [[ ! -f "$MEMORY_SETUP_SCRIPT" ]]; then
+        warn "setup-memory.sh not found - skipping searchable memory setup."
+        MEMORY_DECISION="unavailable"
+        return 0
+    fi
+
+    if bash "$MEMORY_SETUP_SCRIPT" --check >/dev/null 2>&1; then
+        success "Searchable memory already configured"
+        MEMORY_DECISION="configured"
+        return 0
+    fi
+
+    echo "  Choose where to enable searchable memory:"
+    echo "    1. Claude Code only (recommended)"
+    echo "    2. Codex only"
+    echo "    3. Claude Code + Codex"
+    echo "    4. Skip for now"
+    echo ""
+    printf "  Selection ${DIM}[1]${NC} "
+
+    local reply target
+    if ! read -r reply; then
+        reply="4"
+    fi
+    reply="${reply:-1}"
+
+    case "$reply" in
+        1) target="claude" ;;
+        2) target="codex" ;;
+        3) target="both" ;;
+        4)
+            warn "Skipped searchable memory setup."
+            echo "  Semantic recall, older memory search, transcript drill-down,"
+            echo "  expanded search, and stronger citations will be unavailable until enabled."
+            MEMORY_DECISION="skipped"
+            return 0
+            ;;
+        *)
+            warn "Unknown selection - skipped searchable memory setup."
+            MEMORY_DECISION="skipped-invalid"
+            return 0
+            ;;
+    esac
+
+    local exit_code
+    set +e
+    bash "$MEMORY_SETUP_SCRIPT" --target "$target"
+    exit_code=$?
+    set -e
+
+    if [[ $exit_code -eq 0 ]]; then
+        success "Searchable memory setup finished"
+        MEMORY_DECISION="$target"
+        return 0
+    fi
+
+    if [[ $exit_code -eq 3 ]]; then
+        warn "Skipped searchable memory setup."
+        MEMORY_DECISION="skipped-confirmation"
+        return 0
+    fi
+
+    warn "Searchable memory setup did not finish. You can retry later:"
+    echo "    bash scripts/setup-memory.sh"
+    MEMORY_DECISION="failed"
     return 0
 }
 
@@ -436,6 +527,7 @@ mark_guided_complete() {
         --github "$GITHUB_DECISION" \
         --gsd "$GSD_DECISION" \
         --launcher "$LAUNCHER_DECISION" \
+        --memory "$MEMORY_DECISION" \
         --bootstrap-valid true >/dev/null
 }
 
@@ -457,6 +549,7 @@ run_guided_mode() {
     ensure_local_bootstrap
     echo ""
     run_dependency_setup
+    setup_searchable_memory
     setup_github_repo
     install_gsd
     install_launcher_alias

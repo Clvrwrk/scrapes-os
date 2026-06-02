@@ -89,6 +89,8 @@ class LauncherBootstrapTests(unittest.TestCase):
             "installed",
             "--launcher",
             "skipped",
+            "--memory",
+            "configured",
             "--bootstrap-valid",
             "true",
         )
@@ -97,6 +99,7 @@ class LauncherBootstrapTests(unittest.TestCase):
         self.assertEqual(guided["decisions"]["github_backup"], "configured")
         self.assertEqual(guided["decisions"]["gsd_install"], "installed")
         self.assertEqual(guided["decisions"]["launcher_alias"], "skipped")
+        self.assertEqual(guided["decisions"]["memory_setup"], "configured")
 
     def test_state_mark_repair_updates_repair_timestamp(self) -> None:
         self.run_helper_json("bootstrap-repair")

@@ -18,9 +18,25 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $HelperScript = Join-Path $ScriptDir "launcher-bootstrap.py"
 $SetupScript = Join-Path $ScriptDir "setup.ps1"
+$MemorySetupScript = Join-Path $ScriptDir "setup-memory.ps1"
 $InstallAliasScript = Join-Path $ScriptDir "install-centre-alias.ps1"
 $PowerShellHost = (Get-Process -Id $PID).Path
 $CronDryRun = $env:AGENTIC_OS_CRON_DRY_RUN
+$VersionFile = Join-Path $RepoRoot "VERSION"
+$AgenticOsVersion = if (Test-Path $VersionFile) {
+    try {
+        ((Get-Content $VersionFile -ErrorAction Stop | Select-Object -First 1) -as [string]).Trim()
+    }
+    catch {
+        "unknown"
+    }
+}
+else {
+    "unknown"
+}
+if ([string]::IsNullOrWhiteSpace($AgenticOsVersion)) {
+    $AgenticOsVersion = "unknown"
+}
 
 . (Join-Path $ScriptDir "lib\python.ps1")
 . (Join-Path $ScriptDir "lib\gsd-migration.ps1")
@@ -99,6 +115,12 @@ function Show-Banner {
     Write-Host "             A G E N T I C   O S" -ForegroundColor Cyan
     Write-Host "            Guided First-Time Install" -ForegroundColor Cyan
     Write-Host "    ==============================================" -ForegroundColor Cyan
+    if ($AgenticOsVersion -eq "unknown") {
+        Write-Host "    Agentic OS version unknown" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "    Agentic OS v$AgenticOsVersion" -ForegroundColor DarkGray
+    }
     Write-Host ""
 }
 
@@ -175,6 +197,84 @@ function Run-DependencySetup {
 
     Info "Checking system dependencies..."
     & $PowerShellHost -NoProfile -ExecutionPolicy Bypass -File $SetupScript -Silent
+}
+
+function Setup-SearchableMemory {
+    $script:MemoryDecision = "unknown"
+
+    Write-Host ""
+    Write-Host "Searchable Memory" -ForegroundColor Cyan
+    Write-Host "  This is optional, but recommended. It lets Agentic OS search older"
+    Write-Host "  sessions, transcripts, learnings, and brand context."
+    Write-Host "  Claude Code is the recommended default because Agentic OS is Claude-first."
+    Write-Host ""
+
+    if ($CronDryRun -eq "1") {
+        Warn "Dry run mode active - skipping searchable memory setup."
+        $script:MemoryDecision = "skipped-dry-run"
+        return
+    }
+
+    if (-not (Test-Path $MemorySetupScript)) {
+        Warn "setup-memory.ps1 not found - skipping searchable memory setup."
+        $script:MemoryDecision = "unavailable"
+        return
+    }
+
+    & $PowerShellHost -NoProfile -ExecutionPolicy Bypass -File $MemorySetupScript -Check *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Success "Searchable memory already configured"
+        $script:MemoryDecision = "configured"
+        return
+    }
+
+    Write-Host "  Choose where to enable searchable memory:"
+    Write-Host "    1. Claude Code only (recommended)"
+    Write-Host "    2. Codex only"
+    Write-Host "    3. Claude Code + Codex"
+    Write-Host "    4. Skip for now"
+    Write-Host ""
+    $reply = Read-Host "  Selection [1]"
+    if ([string]::IsNullOrWhiteSpace($reply)) {
+        $reply = "1"
+    }
+
+    $target = ""
+    switch ($reply) {
+        "1" { $target = "claude" }
+        "2" { $target = "codex" }
+        "3" { $target = "both" }
+        "4" {
+            Warn "Skipped searchable memory setup."
+            Write-Host "  Semantic recall, older memory search, transcript drill-down,"
+            Write-Host "  expanded search, and stronger citations will be unavailable until enabled."
+            $script:MemoryDecision = "skipped"
+            return
+        }
+        default {
+            Warn "Unknown selection - skipped searchable memory setup."
+            $script:MemoryDecision = "skipped-invalid"
+            return
+        }
+    }
+
+    & $PowerShellHost -NoProfile -ExecutionPolicy Bypass -File $MemorySetupScript -Target $target
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -eq 0) {
+        Success "Searchable memory setup finished"
+        $script:MemoryDecision = $target
+        return
+    }
+
+    if ($exitCode -eq 3) {
+        Warn "Skipped searchable memory setup."
+        $script:MemoryDecision = "skipped-confirmation"
+        return
+    }
+
+    Warn "Searchable memory setup did not finish. You can retry later:"
+    Write-Host "    powershell -File scripts\setup-memory.ps1"
+    $script:MemoryDecision = "failed"
 }
 
 function Setup-GitHubRepo {
@@ -377,6 +477,7 @@ function Mark-GuidedComplete {
         "--github", $script:GitHubDecision,
         "--gsd", $script:GsdDecision,
         "--launcher", $script:LauncherDecision,
+        "--memory", $script:MemoryDecision,
         "--bootstrap-valid", "true"
     )
 }
@@ -401,6 +502,7 @@ function Run-GuidedMode {
     Ensure-LocalBootstrap
     Write-Host ""
     Run-DependencySetup
+    Setup-SearchableMemory
     Setup-GitHubRepo
     Install-Gsd
     Install-LauncherShortcut
