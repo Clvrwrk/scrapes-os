@@ -6,7 +6,7 @@ All notable changes to Agentic OS will be documented in this file. Written for h
 
 _Nothing yet — use `/new-feature` to start something._
 
-## v0.2.0 — 2026-06-01
+## v0.2.2 — 2026-06-02
 
 ### Added
 
