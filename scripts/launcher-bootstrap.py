@@ -48,6 +48,7 @@ def state_defaults() -> dict[str, Any]:
             "github_backup": "unknown",
             "gsd_install": "unknown",
             "launcher_alias": "unknown",
+            "memory_setup": "unknown",
         },
     }
 
@@ -70,10 +71,14 @@ def parse_args() -> argparse.Namespace:
     guided.add_argument("--github", required=True)
     guided.add_argument("--gsd", required=True)
     guided.add_argument("--launcher", required=True)
+    guided.add_argument("--memory", required=True)
     guided.add_argument("--bootstrap-valid", choices=("true", "false"), required=True)
 
     repair = subparsers.add_parser("state-mark-repair")
     repair.add_argument("--bootstrap-valid", choices=("true", "false"), required=True)
+
+    memory = subparsers.add_parser("state-mark-memory")
+    memory.add_argument("--memory", required=True)
 
     return parser.parse_args()
 
@@ -298,6 +303,7 @@ def legacy_state_payload() -> dict[str, Any]:
         "github_backup": "legacy-unknown",
         "gsd_install": "legacy-unknown",
         "launcher_alias": "legacy-unknown",
+        "memory_setup": "legacy-unknown",
     }
     return payload
 
@@ -352,6 +358,7 @@ def mark_guided_state(
     github_status: str,
     gsd_status: str,
     launcher_status: str,
+    memory_status: str,
     bootstrap_valid: bool,
 ) -> dict[str, Any]:
     payload = persistable_state(repo_root)
@@ -364,6 +371,7 @@ def mark_guided_state(
         "github_backup": github_status,
         "gsd_install": gsd_status,
         "launcher_alias": launcher_status,
+        "memory_setup": memory_status,
     }
 
     write_state_file(repo_root, payload)
@@ -376,6 +384,16 @@ def mark_repair_state(repo_root: Path, bootstrap_valid: bool) -> dict[str, Any]:
     payload["version"] = STATE_VERSION
     payload["bootstrap_valid"] = bootstrap_valid
     payload["bootstrap_last_repaired_at"] = utc_now_iso()
+
+    write_state_file(repo_root, payload)
+    return state_status(repo_root)
+
+
+def mark_memory_state(repo_root: Path, memory_status: str) -> dict[str, Any]:
+    payload = persistable_state(repo_root)
+
+    payload["version"] = STATE_VERSION
+    payload["decisions"]["memory_setup"] = memory_status
 
     write_state_file(repo_root, payload)
     return state_status(repo_root)
@@ -434,6 +452,7 @@ def main() -> int:
                 github_status=args.github,
                 gsd_status=args.gsd,
                 launcher_status=args.launcher,
+                memory_status=args.memory,
                 bootstrap_valid=args.bootstrap_valid == "true",
             )
             print(json.dumps(result, indent=2))
@@ -443,6 +462,14 @@ def main() -> int:
             result = mark_repair_state(
                 repo_root=repo_root,
                 bootstrap_valid=args.bootstrap_valid == "true",
+            )
+            print(json.dumps(result, indent=2))
+            return 0
+
+        if args.command == "state-mark-memory":
+            result = mark_memory_state(
+                repo_root=repo_root,
+                memory_status=args.memory,
             )
             print(json.dumps(result, indent=2))
             return 0

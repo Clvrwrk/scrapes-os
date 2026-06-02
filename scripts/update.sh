@@ -126,6 +126,8 @@ if [[ -z "$UPDATE_REMOTE" ]]; then
     exit 1
 fi
 
+OLD_VERSION=$(read_agentic_os_version)
+
 echo ""
 printf "${CYAN}${BOLD}"
 cat << 'BANNER'
@@ -138,6 +140,7 @@ cat << 'BANNER'
     ╚══════════════════════════════════════════════╝
 BANNER
 printf "${NC}"
+printf "    ${DIM}Current version: %s${NC}\n" "$(format_agentic_os_version "$OLD_VERSION")"
 echo ""
 
 # Step 2: Read installed.json

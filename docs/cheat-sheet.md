@@ -17,6 +17,7 @@
 |--------|---------|
 | Add a new client | `bash scripts/add-client.sh "Client Name"` |
 | Update Agentic OS (auto-syncs clients) | `bash scripts/update.sh` |
+| Set up searchable memory | `bash scripts/setup-memory.sh` |
 
 ## Skills
 

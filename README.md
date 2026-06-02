@@ -160,32 +160,41 @@ bash scripts/update.sh
 
 ## Semantic Memory (optional)
 
-Agentic OS includes a semantic recall layer (Tier 1) that lets Claude search across all your past sessions, transcripts, and brand context — not just today's log.
+Agentic OS includes a semantic recall layer (Tier 1) that lets Claude Code or Codex search across past sessions, transcripts, learnings, and brand context -- not just today's log.
 
-Activation requires two steps, done once after cloning or updating:
+The guided installer and updater offer this as the recommended memory upgrade, but never install it silently. Claude Code is the default because Agentic OS is Claude-first. You can choose Claude Code, Codex, both, or skip for now.
 
-**Step 1 — Install the Claude Code plugin**
+Manual setup:
 
-In Claude Code:
-```
-/plugin marketplace add zilliztech/memsearch
-/plugin install memsearch
+```bash
+bash scripts/setup-memory.sh
 ```
 
-Restart Claude Code to activate the plugin.
+Diagnostics only:
 
-**Step 2 — Install the CLI and index your files**
+```bash
+bash scripts/setup-memory.sh --check
+```
 
-Mac / Linux / Windows (Git Bash):
+PowerShell on Windows:
+
+```powershell
+powershell -File scripts\setup-memory.ps1
+```
+
+The script installs the `memsearch` CLI with `uv tool install "memsearch[onnx]"`, configures the vector backend, configures the selected agent runtime, and runs the initial index. It indexes only Agentic OS memory files: `context/memory/`, `context/transcripts/`, `context/learnings.md`, `brand_context/`, and `.memsearch/memory/` when present.
+
+On macOS/Linux it uses local Milvus Lite. On native Windows it uses a free [Zilliz Cloud](https://cloud.zilliz.com) cluster. For the free Zilliz option, choose AWS `eu-central-1` (Frankfurt) or GCP `us-west-1` (Oregon); other regions may require a paid plan. If `ZILLIZ_URI` and `ZILLIZ_TOKEN` are missing, the PowerShell setup opens Zilliz Cloud in your browser and asks you to paste the values. Git Bash prints the same guidance and can open the browser when PowerShell is available.
+
+**First-run index download:** the initial index downloads a local ONNX embedding model (~17 MB) from Hugging Face (one time, then cached). The progress bar can sit at 0% briefly while the connection is established — that is normal. The step is safe to interrupt; the rest of setup still applies, and you can finish it later with `memsearch index <paths>` (downloads resume from cache). The setup scripts disable the `hf_transfer` fast path and raise the download timeout to avoid stalls; override `HF_HUB_ENABLE_HF_TRANSFER` or `HF_HUB_DOWNLOAD_TIMEOUT` if you prefer different values.
+
+The old commands still work as compatibility wrappers:
+
 ```bash
 bash scripts/setup-memsearch.sh
 ```
 
-The script installs the `memsearch` CLI, configures the vector backend, and runs the initial index. On macOS/Linux it works zero-config (local Milvus Lite). On Windows it requires a free [Zilliz Cloud](https://cloud.zilliz.com) cluster — add `ZILLIZ_URI` and `ZILLIZ_TOKEN` to your `.env` before running.
-
-Once both steps are done, Claude indexes every session automatically and keeps the index fresh via a nightly cron. Just ask naturally: "What did we decide about X?" or "What was the positioning angle we used last month?"
-
-Semantic recall is **optional**. Without it, Tier 0 recall (MEMORY.md + today's log) still works as before.
+Semantic recall is **optional**. Without it, Tier 0 recall (`MEMORY.md` + today's log) still works. Older semantic recall, transcript drill-down, expanded memory search, and stronger citations stay unavailable until you enable searchable memory.
 
 ---
 

@@ -43,6 +43,19 @@ warn()   { printf "  ${YELLOW}→ %b${NC}\n" "$1"; }
 err()    { printf "  ${RED}✗ %b${NC}\n" "$1"; }
 header() { printf "\n${CYAN}${BOLD}  ═══ %s ═══${NC}\n\n" "$1"; }
 
+assert_output_contains() {
+    local file="$1"
+    local expected="$2"
+    if grep -Fq "$expected" "$file"; then
+        ok "Found: $expected"
+    else
+        err "Expected output not found: $expected"
+        echo ""
+        sed -n '1,220p' "$file"
+        return 1
+    fi
+}
+
 # ---------- Environment Setup ----------
 
 create_test_env() {
@@ -187,11 +200,66 @@ push_from_main() {
 run_update() {
     # Run update.sh in the demo repo with optional piped input
     cd "$DEMO_REPO"
+    local update_env=(
+        "AGENTIC_OS_UPSTREAM_SLUG=agentic-os-test/main-repo"
+        "AGENTIC_OS_SKIP_MEMORY_PROMPT=1"
+    )
     if [[ -n "${1:-}" ]]; then
-        echo "$1" | bash scripts/update.sh
+        echo "$1" | env "${update_env[@]}" bash scripts/update.sh
     else
-        bash scripts/update.sh
+        env "${update_env[@]}" bash scripts/update.sh
     fi
+}
+
+run_version_output_test() {
+    local test_root="${TMPDIR:-/tmp}/agentic-os-version-output-test"
+    local upstream="$test_root/upstream"
+    local demo="$test_root/demo"
+    local first_output="$test_root/update-with-version-change.out"
+    local second_output="$test_root/update-without-version-change.out"
+
+    header "Version output test"
+    rm -rf "$test_root"
+    mkdir -p "$test_root"
+
+    git clone "$REAL_REPO" "$upstream" --quiet
+    cd "$upstream"
+    git checkout -b main --quiet 2>/dev/null || git checkout main --quiet 2>/dev/null || true
+    cp "$REAL_REPO/VERSION" VERSION
+    cp "$REAL_REPO/scripts/update.sh" scripts/update.sh
+    cp "$REAL_REPO/scripts/lib/common.sh" scripts/lib/common.sh
+    cp "$REAL_REPO/scripts/lib/pull.sh" scripts/lib/pull.sh
+    cp "$REAL_REPO/scripts/lib/catalog.sh" scripts/lib/catalog.sh
+    git add VERSION scripts/update.sh scripts/lib/common.sh scripts/lib/pull.sh scripts/lib/catalog.sh
+    git commit -m "Use current update scripts" --allow-empty --quiet
+
+    git clone "$upstream" "$demo" --quiet
+    cd "$demo"
+    git checkout main --quiet 2>/dev/null || true
+
+    cd "$upstream"
+    printf "9.9.9\n" > VERSION
+    git add VERSION
+    git commit -m "Bump version for update output test" --quiet
+
+    cd "$demo"
+    env AGENTIC_OS_UPSTREAM_SLUG=agentic-os-version-output-test/upstream \
+        AGENTIC_OS_SKIP_MEMORY_PROMPT=1 \
+        bash scripts/update.sh > "$first_output" 2>&1
+
+    assert_output_contains "$first_output" "Current version: v$(cat "$REAL_REPO/VERSION")"
+    assert_output_contains "$first_output" "Version: v$(cat "$REAL_REPO/VERSION") -> v9.9.9"
+    assert_output_contains "$first_output" "You are now on Agentic OS v9.9.9."
+
+    env AGENTIC_OS_UPSTREAM_SLUG=agentic-os-version-output-test/upstream \
+        AGENTIC_OS_SKIP_MEMORY_PROMPT=1 \
+        bash scripts/update.sh > "$second_output" 2>&1
+
+    assert_output_contains "$second_output" "Current version: v9.9.9"
+    assert_output_contains "$second_output" "Version: v9.9.9 already installed"
+    assert_output_contains "$second_output" "You already have Agentic OS v9.9.9."
+
+    ok "Version output test passed"
 }
 
 # ---------- Scenario Descriptions ----------
@@ -826,6 +894,9 @@ case "${1:-}" in
         rm -rf "$TEST_ROOT"
         ok "Removed $TEST_ROOT"
         echo ""
+        ;;
+    version-output)
+        run_version_output_test
         ;;
     setup)
         create_test_env
