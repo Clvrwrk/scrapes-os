@@ -47,19 +47,36 @@ def load_config():
         return DEFAULTS
 
 def authority_multiplier(source_path: str, weights: dict) -> float:
-    """Return authority weight for source_path by prefix match."""
+    """Return authority weight for source_path by most-specific prefix match.
+
+    Exact file keys take precedence over directory keys. Within each group the
+    longest (most specific) matching key wins, so nested directories like
+    ``context/`` and ``context/memory/`` resolve to the deeper match.
+    """
     if not source_path:
         return 1.0
     # Normalize path separators
     path = source_path.replace("\\", "/")
-    # Exact file match first
+
+    # Exact file match takes precedence; pick the longest matching key.
+    best_weight = None
+    best_len = -1
     for key, weight in weights.items():
-        if not key.endswith("/") and path.endswith(key.replace("\\", "/")):
-            return weight
-    # Prefix/directory match
+        nkey = key.replace("\\", "/")
+        if not nkey.endswith("/") and path.endswith(nkey) and len(nkey) > best_len:
+            best_len, best_weight = len(nkey), weight
+    if best_weight is not None:
+        return best_weight
+
+    # Directory/prefix match; pick the longest (most specific) matching key.
+    best_len = -1
     for key, weight in weights.items():
-        if key.endswith("/") and ("/" + key in "/" + path or path.startswith(key)):
-            return weight
+        nkey = key.replace("\\", "/")
+        if nkey.endswith("/") and (("/" + nkey) in ("/" + path) or path.startswith(nkey)) and len(nkey) > best_len:
+            best_len, best_weight = len(nkey), weight
+    if best_len >= 0:
+        return best_weight
+
     return 1.0
 
 def extract_file_date(source_path: str):
