@@ -353,14 +353,17 @@ ensure_memsearch_cli() {
     fi
 
     info "Installing memsearch[onnx] with uv..."
-    if uv tool install "memsearch[onnx]"; then
+    # memsearch requires Python >=3.10, but many systems (e.g. macOS) only have
+    # an older system python3 on PATH. Pin a managed interpreter so uv provisions
+    # a compatible one instead of failing on whatever python happens to be active.
+    if uv tool install --python 3.12 "memsearch[onnx]"; then
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
         memsearch_installed && ok "memsearch CLI installed" && return 0
     fi
 
     fail "memsearch install failed."
     echo "  You can retry manually:"
-    echo "    uv tool install \"memsearch[onnx]\""
+    echo "    uv tool install --python 3.12 \"memsearch[onnx]\""
     return 1
 }
 
