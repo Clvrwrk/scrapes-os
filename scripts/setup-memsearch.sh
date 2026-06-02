@@ -86,7 +86,13 @@ fi
 
 echo "==> Running initial index..."
 echo "    This may take a few minutes on first run."
-memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/
+INDEX_PATHS="context/memory/ context/transcripts/ context/learnings.md brand_context/"
+# Include auto-captured session logs if they already exist (re-runs and updates)
+if [ -d ".memsearch/memory" ]; then
+  INDEX_PATHS="$INDEX_PATHS .memsearch/memory/"
+fi
+# shellcheck disable=SC2086
+memsearch index $INDEX_PATHS
 
 echo ""
 echo "==> Done. Run 'memsearch stats' to check the index."

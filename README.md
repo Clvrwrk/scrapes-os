@@ -158,6 +158,37 @@ bash scripts/update.sh
 
 ---
 
+## Semantic Memory (optional)
+
+Agentic OS includes a semantic recall layer (Tier 1) that lets Claude search across all your past sessions, transcripts, and brand context — not just today's log.
+
+Activation requires two steps, done once after cloning or updating:
+
+**Step 1 — Install the Claude Code plugin**
+
+In Claude Code:
+```
+/plugin marketplace add zilliztech/memsearch
+/plugin install memsearch
+```
+
+Restart Claude Code to activate the plugin.
+
+**Step 2 — Install the CLI and index your files**
+
+Mac / Linux / Windows (Git Bash):
+```bash
+bash scripts/setup-memsearch.sh
+```
+
+The script installs the `memsearch` CLI, configures the vector backend, and runs the initial index. On macOS/Linux it works zero-config (local Milvus Lite). On Windows it requires a free [Zilliz Cloud](https://cloud.zilliz.com) cluster — add `ZILLIZ_URI` and `ZILLIZ_TOKEN` to your `.env` before running.
+
+Once both steps are done, Claude indexes every session automatically and keeps the index fresh via a nightly cron. Just ask naturally: "What did we decide about X?" or "What was the positioning angle we used last month?"
+
+Semantic recall is **optional**. Without it, Tier 0 recall (MEMORY.md + today's log) still works as before.
+
+---
+
 ## API Keys
 
 Most skills work without any API keys. Some are enhanced with external services (web scraping, image generation, video creation). All keys go in your `.env` file.
