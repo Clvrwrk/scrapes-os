@@ -19,6 +19,7 @@
       "Bash(bash scripts/setup-memsearch.sh*)",
       "Bash(powershell -File scripts/setup-memory.ps1*)",
       "Bash(powershell -File scripts/setup-memsearch.ps1*)",
+      "Bash(powershell -File scripts/stop-memsearch-watchers.ps1*)",
       "Bash(bash scripts/lib/memory-meta.sh*)",
       "Bash(python3 scripts/lib/reranker.py*)",
       "Read(*)",

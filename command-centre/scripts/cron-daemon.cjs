@@ -200,9 +200,15 @@ async function runServe() {
 }
 
 function startDaemon() {
-  const status = cronRuntime.getManagedRuntimeStatus(agenticOsDir);
+  let status = cronRuntime.getManagedRuntimeStatus(agenticOsDir);
   if (status.runtime === "daemon" && status.pid && !isPidAlive(status.pid)) {
     cronRuntime.releaseRuntimeLeadership(agenticOsDir, status.identifier || "daemon");
+    status = cronRuntime.getManagedRuntimeStatus(agenticOsDir);
+  }
+
+  if (status.leaderState === "active") {
+    console.log(formatStatus(status));
+    return;
   }
 
   if (status.runtime === "daemon" && status.pid && isPidAlive(status.pid)) {

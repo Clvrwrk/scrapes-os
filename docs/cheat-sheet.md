@@ -18,6 +18,7 @@
 | Add a new client | `bash scripts/add-client.sh "Client Name"` |
 | Update Agentic OS (auto-syncs clients) | `bash scripts/update.sh` |
 | Set up searchable memory | `bash scripts/setup-memory.sh` |
+| Clear stuck Windows MemSearch watchers | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-memsearch-watchers.ps1` |
 
 ## Skills
 

@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
 const cronRuntime = require("./cron-runtime.js");
@@ -132,6 +133,38 @@ test("getManagedRuntimeStatus treats the local identifier as leader only when th
     assert.equal(status.leader, true);
     assert.equal(status.ownershipReason, "local-leader-active");
     assert.equal(status.identifier, "in-process-123");
+  } finally {
+    cleanupTempWorkspace(workspaceDir);
+  }
+});
+
+test("cron daemon start does not spawn a passive daemon when an in-process leader is active", () => {
+  const workspaceDir = makeTempWorkspace();
+  const cronDaemonPath = path.resolve(__dirname, "..", "..", "scripts", "cron-daemon.cjs");
+
+  try {
+    fs.writeFileSync(path.join(workspaceDir, "AGENTS.md"), "# test workspace\n", "utf-8");
+    cronRuntime.claimRuntimeLeadership(workspaceDir, {
+      runtime: "in-process",
+      identifier: "in-process-test",
+      pid: process.pid,
+      workspaceCount: 1,
+      startedAt: new Date().toISOString(),
+    });
+
+    const result = spawnSync(process.execPath, [cronDaemonPath, "start"], {
+      cwd: workspaceDir,
+      env: {
+        ...process.env,
+        AGENTIC_OS_DIR: workspaceDir,
+      },
+      encoding: "utf-8",
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /runtime: in-process/);
+    assert.doesNotMatch(result.stdout, /started daemon pid/);
+    assert.equal(cronRuntime.readDaemonPid(workspaceDir), null);
   } finally {
     cleanupTempWorkspace(workspaceDir);
   }

@@ -193,9 +193,36 @@ zilliz_configured() {
     [[ -n "$zilliz_uri" && -n "$zilliz_token" ]]
 }
 
+windows_watch_disabled() {
+    if ! is_windows_shell; then
+        return 0
+    fi
+
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        if [[ "${MEMSEARCH_NO_WATCH:-}" == "1" ]]; then
+            return 0
+        fi
+        return 1
+    fi
+
+    local user_value
+    user_value="$(
+        powershell.exe -NoProfile -NonInteractive -Command "[Environment]::GetEnvironmentVariable('MEMSEARCH_NO_WATCH','User')" 2>/dev/null |
+        tr -d '\r'
+    )"
+    [[ "$user_value" == "1" ]]
+}
+
+nightly_memsearch_cron_active() {
+    local job_file="$REPO_ROOT/cron/jobs/nightly-memsearch-index.md"
+    [[ -f "$job_file" ]] || return 1
+    grep -qiE '^active:[[:space:]]*['\''"]?true['\''"]?[[:space:]]*$' "$job_file"
+}
+
 memory_ready() {
     memsearch_installed || return 1
     zilliz_configured || return 1
+    windows_watch_disabled || return 1
     claude_memsearch_installed || codex_memsearch_installed
 }
 
@@ -241,6 +268,20 @@ print_status() {
         else
             warn "Zilliz Cloud values missing - Windows needs ZILLIZ_URI and ZILLIZ_TOKEN"
         fi
+
+        if windows_watch_disabled; then
+            ok "MemSearch real-time watch disabled on Windows (MEMSEARCH_NO_WATCH=1)"
+        else
+            warn "MemSearch real-time watch is not disabled on Windows"
+        fi
+
+        if nightly_memsearch_cron_active; then
+            ok "Nightly MemSearch index job is active"
+        else
+            warn "Nightly MemSearch index job is missing or inactive"
+        fi
+
+        info "Automatic indexing runs when Command Centre or the managed cron daemon is running."
     else
         ok "Milvus Lite local backend available for this platform"
     fi
@@ -314,6 +355,8 @@ confirm_setup() {
     echo "  - Configure ONNX local embeddings."
     if is_windows_shell; then
         echo "  - Use Zilliz Cloud as the Windows vector backend."
+        echo "  - Disable real-time MemSearch watch to prevent stuck background processes."
+        echo "  - Refresh memory search through the initial index and managed cron runtime."
         echo "  - For a free Zilliz cluster, choose AWS eu-central-1 (Frankfurt)"
         echo "    or GCP us-west-1 (Oregon)."
     else
@@ -335,6 +378,30 @@ confirm_setup() {
     fi
     reply="${reply:-Y}"
     [[ "$reply" =~ ^[Yy]$ ]] || return 3
+}
+
+disable_windows_watch() {
+    if ! is_windows_shell; then
+        return 0
+    fi
+
+    export MEMSEARCH_NO_WATCH=1
+
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        fail "powershell.exe is required to save MEMSEARCH_NO_WATCH for Windows users."
+        echo "  The current setup process has MEMSEARCH_NO_WATCH=1, but future shells may not."
+        return 1
+    fi
+
+    if ! powershell.exe -NoProfile -NonInteractive -Command "[Environment]::SetEnvironmentVariable('MEMSEARCH_NO_WATCH','1','User')" >/dev/null; then
+        fail "Could not set MEMSEARCH_NO_WATCH in the Windows user environment."
+        return 1
+    fi
+
+    ok "Disabled real-time MemSearch watch on Windows (MEMSEARCH_NO_WATCH=1)"
+    warn "Restart Claude Code, Codex, and any open terminals for this to take effect."
+    info "Automatic memory refresh uses Command Centre or the managed cron daemon."
+    info "Daemon command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\start-crons.ps1"
 }
 
 ensure_memsearch_cli() {
@@ -569,6 +636,7 @@ fi
 
 ERRORS=0
 
+disable_windows_watch || ERRORS=$((ERRORS + 1))
 ensure_windows_python3_shim || ERRORS=$((ERRORS + 1))
 ensure_memsearch_cli || ERRORS=$((ERRORS + 1))
 
