@@ -135,6 +135,68 @@ test_detects_legacy_artifacts() {
     assert_finding_contains "$findings" "file:$repo/.claude/commands/gsd-help.md"
 }
 
+test_redux_install_not_detected_as_legacy() {
+    reset_case
+    local base repo global findings
+    base="$(make_workspace redux-not-legacy)"
+    repo="$base/repo"
+    global="$base/global-claude"
+
+    # A healthy Redux install: get-shit-done/ holds a VERSION file and Redux
+    # deploys agents/gsd-*.md. Neither must be reported as legacy.
+    mkdir -p "$global/get-shit-done" "$global/agents"
+    printf "1.1.0\n" > "$global/get-shit-done/VERSION"
+    : > "$global/agents/gsd-review.md"
+
+    export HOME="$base/home"
+    export CLAUDE_CONFIG_DIR="$global"
+    findings="$(agentic_os_gsd_detect_legacy "$repo")"
+    [[ -z "$findings" ]] || fail "Expected no legacy findings for a Redux install, got: $findings"
+}
+
+test_redux_present_still_detects_old_command_bundle() {
+    reset_case
+    local base repo global findings
+    base="$(make_workspace redux-plus-legacy-bundle)"
+    repo="$base/repo"
+    global="$base/global-claude"
+
+    # Redux present, but a genuine legacy commands/gsd/ bundle was left behind.
+    # The always-legacy marker must still fire; Redux-owned files must not.
+    mkdir -p "$global/get-shit-done" "$global/commands/gsd" "$global/agents"
+    printf "1.1.0\n" > "$global/get-shit-done/VERSION"
+    : > "$global/agents/gsd-review.md"
+
+    export HOME="$base/home"
+    export CLAUDE_CONFIG_DIR="$global"
+    findings="$(agentic_os_gsd_detect_legacy "$repo")"
+    assert_finding_contains "$findings" "file:$global/commands/gsd"
+    ! grep -Fq "file:$global/get-shit-done" <<< "$findings" || fail "Redux runtime should not be flagged as legacy"
+    ! grep -Fq "file:$global/agents/gsd-review.md" <<< "$findings" || fail "Redux agent file should not be flagged as legacy"
+}
+
+test_redux_version_reports_installed() {
+    reset_case
+    local base repo global version
+    base="$(make_workspace redux-version)"
+    repo="$base/repo"
+    global="$base/global-claude"
+
+    export HOME="$base/home"
+    export CLAUDE_CONFIG_DIR="$global"
+
+    # No runtime yet -> helper reports not installed.
+    if version="$(agentic_os_gsd_redux_version "$repo")"; then
+        fail "Expected redux_version to fail when no runtime is present, got: $version"
+    fi
+
+    # Redux runtime present -> helper echoes the trimmed version.
+    mkdir -p "$global/get-shit-done"
+    printf "1.1.0\n" > "$global/get-shit-done/VERSION"
+    version="$(agentic_os_gsd_redux_version "$repo")" || fail "Expected redux_version to succeed when runtime is present"
+    [[ "$version" == "1.1.0" ]] || fail "Expected version 1.1.0, got: $version"
+}
+
 test_approve_cleanup_installs_redux() {
     reset_case
     local base repo global
@@ -222,6 +284,9 @@ test_safe_remove_protects_planning() {
 
 test_fresh_install_no_legacy
 test_detects_legacy_artifacts
+test_redux_install_not_detected_as_legacy
+test_redux_present_still_detects_old_command_bundle
+test_redux_version_reports_installed
 test_approve_cleanup_installs_redux
 test_decline_cleanup_keeps_legacy
 test_update_no_legacy_does_not_install

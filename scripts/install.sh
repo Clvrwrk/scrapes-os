@@ -299,6 +299,7 @@ setup_github_repo() {
 }
 
 install_gsd() {
+    local redux_version=""
     echo ""
     printf "${CYAN}${BOLD}GSD Project Framework${NC}\n"
     echo "  This installs the optional GSD commands for structured project work."
@@ -324,6 +325,11 @@ install_gsd() {
 
     if agentic_os_gsd_offer_legacy_migration "$REPO_ROOT"; then
         if [[ "$AGENTIC_OS_GSD_MIGRATION_RESULT" != "cleaned" ]]; then
+            if redux_version="$(agentic_os_gsd_redux_version "$REPO_ROOT")"; then
+                success "GSD-redux already installed (v${redux_version})"
+                GSD_DECISION="already-installed"
+                return 0
+            fi
             if ! ask_yes_no "Install GSD now?"; then
                 warn "Skipped GSD installation."
                 GSD_DECISION="skipped"
