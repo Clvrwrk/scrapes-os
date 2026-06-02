@@ -22,7 +22,7 @@ function Shorten-CommandLine {
 }
 
 function Find-MemSearchWatchProcesses {
-    $matches = Get-CimInstance Win32_Process | Where-Object {
+    $processMatches = Get-CimInstance Win32_Process | Where-Object {
         $_.CommandLine -and
         $_.CommandLine -match '(?i)\bmemsearch\b' -and
         $_.CommandLine -match '(?i)\bwatch\b'
@@ -30,10 +30,10 @@ function Find-MemSearchWatchProcesses {
 
     if (-not [string]::IsNullOrWhiteSpace($PathFilter)) {
         $escaped = [regex]::Escape($PathFilter)
-        $matches = $matches | Where-Object { $_.CommandLine -match $escaped }
+        $processMatches = $processMatches | Where-Object { $_.CommandLine -match $escaped }
     }
 
-    return @($matches)
+    return @($processMatches)
 }
 
 function Remove-StalePidFiles {
