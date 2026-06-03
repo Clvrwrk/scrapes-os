@@ -59,7 +59,7 @@ UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
 # user's backup fork. In the fork workflow `origin` is the user's private fork
 # and the canonical repo lives at `upstream`, so we resolve the update remote by
 # URL rather than trusting a fixed remote name.
-UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-Clvrwrk/scrapes-os}"
 
 # Echo the name of the first remote whose URL points at the canonical repo.
 # Preference order: upstream, origin, then any other remote. Returns 1 if none.

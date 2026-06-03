@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simonc602/agentic-os.git"
+    "url": "git+https://github.com/Clvrwrk/scrapes-os.git"
   },
   "license": "ISC",
   "dependencies": {

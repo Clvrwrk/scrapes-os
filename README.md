@@ -9,7 +9,7 @@ Agentic OS gives Claude Code personality, memory, and skills so it works like a 
 ## Quickstart
 
 ```bash
-git clone https://<YOUR-TOKEN>@github.com/simonc602/agentic-os.git
+git clone https://<YOUR-TOKEN>@github.com/Clvrwrk/scrapes-os.git
 cd agentic-os
 bash scripts/centre.sh
 ```
@@ -152,7 +152,7 @@ If new skills are available, the script tells you what was added and how to inst
 **If the update fails with an authentication error**, the access token has been rotated. Grab the latest token from the [Agentic Academy classroom](https://www.skool.com/scrapes/classroom/d1cfafed?md=552b0ba753df4c738843913fb3eb8312) and update your remote:
 
 ```bash
-git remote set-url origin https://<NEW-TOKEN>@github.com/simonc602/agentic-os.git
+git remote set-url origin https://<NEW-TOKEN>@github.com/Clvrwrk/scrapes-os.git
 bash scripts/update.sh
 ```
 

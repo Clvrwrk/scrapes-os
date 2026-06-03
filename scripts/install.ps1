@@ -280,8 +280,8 @@ function Setup-SearchableMemory {
 function Setup-GitHubRepo {
     $script:GitHubDecision = "unknown"
 
-    $upstreamOwner = "simonc602"
-    $upstreamRepo = "agentic-os"
+    $upstreamOwner = "Clvrwrk"
+    $upstreamRepo = "scrapes-os"
     $originUrl = ""
     $isUpstream = $false
 

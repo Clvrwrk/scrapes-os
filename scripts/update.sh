@@ -19,7 +19,7 @@ if [[ -z "${__AGENTIC_OS_UPDATE_BOOTSTRAPPED:-}" ]]; then
     cd "$BOOTSTRAP_REPO_ROOT"
 
     BOOTSTRAP_UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
-    BOOTSTRAP_UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+    BOOTSTRAP_UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-Clvrwrk/scrapes-os}"
 
     # Resolve the canonical remote by URL — never a user's backup fork.
     # Mirrors resolve_update_remote() in scripts/lib/common.sh, which isn't

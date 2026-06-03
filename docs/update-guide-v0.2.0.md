@@ -115,7 +115,7 @@ Rather than trying to merge all the changes into your existing install (which wi
 
 2. **Clone the latest version:**
    ```bash
-   git clone https://YOUR-TOKEN@github.com/simonc602/agentic-os.git
+   git clone https://YOUR-TOKEN@github.com/Clvrwrk/scrapes-os.git
    ```
    Use the same access token you used originally. If it's expired, grab the latest one from the Skool classroom.
 

@@ -39,9 +39,9 @@ printf "${CYAN}${BOLD}  Agentic OS — Checking for updates...${NC}\n"
 echo ""
 
 # ---------- Resolve the canonical update remote by URL ----------
-# Updates come from simonc602/agentic-os, never a user's backup fork.
+# Updates come from Clvrwrk/scrapes-os, never a user's backup fork.
 # Mirrors resolve_update_remote() in scripts/lib/common.sh.
-UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-simonc602/agentic-os}"
+UPSTREAM_SLUG="${AGENTIC_OS_UPSTREAM_SLUG:-Clvrwrk/scrapes-os}"
 UPSTREAM_BRANCH="${AGENTIC_OS_UPSTREAM_BRANCH:-main}"
 UPDATE_REMOTE=""
 for _remote in upstream origin $(git remote 2>/dev/null); do

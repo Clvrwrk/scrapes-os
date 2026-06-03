@@ -289,8 +289,8 @@ setup_searchable_memory() {
 }
 
 setup_github_repo() {
-    local upstream_owner="simonc602"
-    local upstream_repo="agentic-os"
+    local upstream_owner="Clvrwrk"
+    local upstream_repo="scrapes-os"
     local origin_url=""
     local is_upstream=0
 

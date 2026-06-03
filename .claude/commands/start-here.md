@@ -28,7 +28,7 @@ Create today's memory file per CLAUDE.md's **Daily Memory** section:
 Check whether the user's data is backed up to their own GitHub repo:
 1. First, check `.env` for `IS_TEMPLATE_MAINTAINER=true`. If set, **skip this entire step** — the user owns the template repo and `origin` is already correct.
 2. Run `git remote -v` and inspect the `origin` URL.
-3. If `origin` contains `simonc602/agentic-os` (the upstream template), the user hasn't set up their own repo yet.
+3. If `origin` contains `Clvrwrk/scrapes-os` (the upstream template), the user hasn't set up their own repo yet.
 4. If there is no `origin` at all, same situation.
 
 **If not configured:**
