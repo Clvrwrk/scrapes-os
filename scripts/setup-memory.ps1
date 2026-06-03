@@ -143,9 +143,30 @@ function Test-ZillizConfigured {
     return (-not [string]::IsNullOrWhiteSpace($uri)) -and (-not [string]::IsNullOrWhiteSpace($token))
 }
 
+function Test-WindowsWatchDisabled {
+    if (-not (Test-WindowsPlatform)) { return $true }
+
+    $userValue = [Environment]::GetEnvironmentVariable("MEMSEARCH_NO_WATCH", "User")
+    return $userValue -eq "1"
+}
+
+function Test-NightlyMemSearchCronActive {
+    $jobPath = Join-Path $RepoRoot "cron\jobs\nightly-memsearch-index.md"
+    if (-not (Test-Path -LiteralPath $jobPath)) { return $false }
+
+    try {
+        $content = Get-Content -LiteralPath $jobPath -Raw
+        return $content -match '(?im)^active:\s*[''"]?true[''"]?\s*$'
+    }
+    catch {
+        return $false
+    }
+}
+
 function Test-MemoryReady {
     if (-not (Test-MemSearchInstalled)) { return $false }
     if (-not (Test-ZillizConfigured)) { return $false }
+    if (-not (Test-WindowsWatchDisabled)) { return $false }
     return (Test-ClaudeMemSearchInstalled) -or (Test-CodexMemSearchInstalled)
 }
 
@@ -200,6 +221,22 @@ function Show-Status {
         else {
             Warn "Zilliz Cloud values missing - Windows needs ZILLIZ_URI and ZILLIZ_TOKEN"
         }
+
+        if (Test-WindowsWatchDisabled) {
+            Success "MemSearch real-time watch disabled on Windows (MEMSEARCH_NO_WATCH=1)"
+        }
+        else {
+            Warn "MemSearch real-time watch is not disabled on Windows"
+        }
+
+        if (Test-NightlyMemSearchCronActive) {
+            Success "Nightly MemSearch index job is active"
+        }
+        else {
+            Warn "Nightly MemSearch index job is missing or inactive"
+        }
+
+        Info "Automatic indexing runs when Command Centre or the managed cron daemon is running."
     }
     else {
         Success "Milvus Lite local backend available for this platform"
@@ -266,6 +303,8 @@ function Confirm-Setup {
     Write-Host "  - Configure ONNX local embeddings."
     if (Test-WindowsPlatform) {
         Write-Host "  - Use Zilliz Cloud as the Windows vector backend."
+        Write-Host "  - Disable real-time MemSearch watch to prevent stuck background processes."
+        Write-Host "  - Refresh memory search through the initial index and managed cron runtime."
         Write-Host "  - For a free Zilliz cluster, choose AWS eu-central-1 (Frankfurt)"
         Write-Host "    or GCP us-west-1 (Oregon)."
     }
@@ -285,6 +324,26 @@ function Confirm-Setup {
     $reply = Read-Host "  Continue? [Y/n]"
     if ([string]::IsNullOrWhiteSpace($reply)) { $reply = "Y" }
     return $reply -match "^[Yy]$"
+}
+
+function Disable-WindowsWatch {
+    if (-not (Test-WindowsPlatform)) { return $true }
+
+    try {
+        [Environment]::SetEnvironmentVariable("MEMSEARCH_NO_WATCH", "1", "User")
+        $env:MEMSEARCH_NO_WATCH = "1"
+    }
+    catch {
+        Fail "Could not set MEMSEARCH_NO_WATCH in the Windows user environment."
+        Write-Host "  Error: $($_.Exception.Message)"
+        return $false
+    }
+
+    Success "Disabled real-time MemSearch watch on Windows (MEMSEARCH_NO_WATCH=1)"
+    Warn "Restart Claude Code, Codex, and any open terminals for this to take effect."
+    Info "Automatic memory refresh uses Command Centre or the managed cron daemon."
+    Info "Daemon command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-crons.ps1"
+    return $true
 }
 
 function Ensure-MemSearchCli {
@@ -554,6 +613,8 @@ if (-not (Confirm-Setup)) {
 }
 
 $errors = 0
+
+if (-not (Disable-WindowsWatch)) { $errors++ }
 
 if (-not (Ensure-MemSearchCli)) { $errors++ }
 

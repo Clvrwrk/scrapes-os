@@ -186,6 +186,16 @@ The script installs the `memsearch` CLI with `uv tool install "memsearch[onnx]"`
 
 On macOS/Linux it uses local Milvus Lite. On native Windows it uses a free [Zilliz Cloud](https://cloud.zilliz.com) cluster. For the free Zilliz option, choose AWS `eu-central-1` (Frankfurt) or GCP `us-west-1` (Oregon); other regions may require a paid plan. If `ZILLIZ_URI` and `ZILLIZ_TOKEN` are missing, the PowerShell setup opens Zilliz Cloud in your browser and asks you to paste the values. Git Bash prints the same guidance and can open the browser when PowerShell is available.
 
+On native Windows, setup disables the real-time `memsearch watch` background helper with the Windows User environment variable `MEMSEARCH_NO_WATCH=1`. This prevents orphaned watcher processes from keeping project folders open. Restart Claude Code, Codex, and open terminals after setup so they inherit the setting.
+
+Windows memory search still works. Setup runs an initial index, and later refreshes come from the managed Agentic OS cron system: keep Command Centre open, or start the existing daemon with `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-crons.ps1`. To refresh manually, run `memsearch index context/memory/ context/transcripts/ context/learnings.md brand_context/` (append `.memsearch/memory/` if it exists).
+
+If old watcher processes are already stuck, clear them with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-memsearch-watchers.ps1
+```
+
 **First-run index download:** the initial index downloads a local ONNX embedding model (~17 MB) from Hugging Face (one time, then cached). The progress bar can sit at 0% briefly while the connection is established — that is normal. The step is safe to interrupt; the rest of setup still applies, and you can finish it later with `memsearch index <paths>` (downloads resume from cache). The setup scripts disable the `hf_transfer` fast path and raise the download timeout to avoid stalls; override `HF_HUB_ENABLE_HF_TRANSFER` or `HF_HUB_DOWNLOAD_TIMEOUT` if you prefer different values.
 
 The old commands still work as compatibility wrappers:
