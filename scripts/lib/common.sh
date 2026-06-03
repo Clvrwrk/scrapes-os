@@ -16,6 +16,28 @@ ok()    { printf "  ${GREEN}✓ %b${NC}\n" "$1"; }
 warn()  { printf "  ${YELLOW}→ %b${NC}\n" "$1"; }
 bullet(){ printf "    ${DIM}•${NC} %b\n" "$1"; }
 
+read_agentic_os_version() {
+    local version_file="${1:-$REPO_ROOT/VERSION}"
+    local version=""
+    if [[ -f "$version_file" ]]; then
+        version=$(head -n 1 "$version_file" 2>/dev/null | tr -d '\r' || true)
+    fi
+    if [[ -z "$version" ]]; then
+        printf "unknown\n"
+    else
+        printf "%s\n" "$version"
+    fi
+}
+
+format_agentic_os_version() {
+    local version="${1:-unknown}"
+    if [[ "$version" == "unknown" || -z "$version" ]]; then
+        printf "version unknown\n"
+    else
+        printf "v%s\n" "$version"
+    fi
+}
+
 # ---------- Repo root from this file's location ----------
 if [[ -n "${AGENTIC_OS_UPDATE_BOOTSTRAP_REPO_ROOT:-}" ]]; then
     REPO_ROOT="$AGENTIC_OS_UPDATE_BOOTSTRAP_REPO_ROOT"

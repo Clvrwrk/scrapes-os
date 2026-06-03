@@ -64,6 +64,21 @@ function Test-AgenticOsPathWithin {
     return $resolvedPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Get-AgenticOsGsdReduxVersion {
+    param([string]$RepoRoot)
+
+    # get-shit-done/VERSION is the marker that Redux is installed — the same
+    # signal the update hook trusts (.claude/hooks/gsd-check-update.js).
+    foreach ($configDir in Get-AgenticOsGsdConfigDirs -RepoRoot $RepoRoot) {
+        $versionFile = Join-Path $configDir "get-shit-done\VERSION"
+        if (Test-Path -LiteralPath $versionFile) {
+            return ((Get-Content -Raw -LiteralPath $versionFile).Trim())
+        }
+    }
+
+    return $null
+}
+
 function Find-AgenticOsLegacyGsd {
     param([string]$RepoRoot)
 
@@ -107,24 +122,36 @@ function Find-AgenticOsLegacyGsd {
         $commandsGsd = Join-Path $configDir "commands\gsd"
         $legacyRuntime = Join-Path $configDir "get-shit-done"
 
+        # Redux's runtime lives in get-shit-done/ with a VERSION file. Its presence
+        # means this config dir holds a healthy Redux install, so Redux-owned
+        # artifacts here must not be flagged as legacy. This is the same marker the
+        # update hook trusts (.claude/hooks/gsd-check-update.js).
+        $reduxPresent = Test-Path -LiteralPath (Join-Path $legacyRuntime "VERSION")
+
+        # Old command-bundle layout — never produced by Redux.
         if (Test-Path -LiteralPath $commandsGsd) {
             $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $commandsGsd; ConfigRoot = $configDir }) | Out-Null
         }
-        if (Test-Path -LiteralPath $legacyRuntime) {
+        # A bare get-shit-done/ without a VERSION file is the pre-Redux runtime.
+        if ((Test-Path -LiteralPath $legacyRuntime) -and (-not $reduxPresent)) {
             $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $legacyRuntime; ConfigRoot = $configDir }) | Out-Null
         }
 
-        $agentsDir = Join-Path $configDir "agents"
-        if (Test-Path -LiteralPath $agentsDir) {
-            Get-ChildItem -LiteralPath $agentsDir -Filter "gsd-*.md" -File -ErrorAction SilentlyContinue | ForEach-Object {
-                $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $_.FullName; ConfigRoot = $configDir }) | Out-Null
+        # Loose gsd-*.md command/agent files: Redux installs agents/gsd-*.md, so
+        # only treat these as legacy when Redux is not installed in this config dir.
+        if (-not $reduxPresent) {
+            $agentsDir = Join-Path $configDir "agents"
+            if (Test-Path -LiteralPath $agentsDir) {
+                Get-ChildItem -LiteralPath $agentsDir -Filter "gsd-*.md" -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $_.FullName; ConfigRoot = $configDir }) | Out-Null
+                }
             }
-        }
 
-        $commandsDir = Join-Path $configDir "commands"
-        if (Test-Path -LiteralPath $commandsDir) {
-            Get-ChildItem -LiteralPath $commandsDir -Filter "gsd-*.md" -File -ErrorAction SilentlyContinue | ForEach-Object {
-                $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $_.FullName; ConfigRoot = $configDir }) | Out-Null
+            $commandsDir = Join-Path $configDir "commands"
+            if (Test-Path -LiteralPath $commandsDir) {
+                Get-ChildItem -LiteralPath $commandsDir -Filter "gsd-*.md" -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    $findings.Add([pscustomobject]@{ Type = "File"; Scope = $null; Package = $null; Path = $_.FullName; ConfigRoot = $configDir }) | Out-Null
+                }
             }
         }
     }

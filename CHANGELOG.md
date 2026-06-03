@@ -4,7 +4,14 @@ All notable changes to Agentic OS will be documented in this file. Written for h
 
 ## Unreleased
 
-_Nothing yet — use `/new-feature` to start something._
+### Added
+
+- **Recommended Memory Setup** — install and update now offer searchable memory through `scripts/setup-memory.sh` and `scripts/setup-memory.ps1`, with Claude Code as the default and Codex/both/skip choices.
+- **Version visibility** — install and update now show the current Agentic OS version, and update confirms the version received.
+
+### Changed
+
+- `setup-memsearch.sh` and `setup-memsearch.ps1` now route to the recommended setup flow for backward compatibility.
 
 ## v0.2.2 — 2026-06-02
 

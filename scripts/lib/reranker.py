@@ -47,19 +47,36 @@ def load_config():
         return DEFAULTS
 
 def authority_multiplier(source_path: str, weights: dict) -> float:
-    """Return authority weight for source_path by prefix match."""
+    """Return authority weight for source_path by most-specific prefix match.
+
+    Exact file keys take precedence over directory keys. Within each group the
+    longest (most specific) matching key wins, so nested directories like
+    ``context/`` and ``context/memory/`` resolve to the deeper match.
+    """
     if not source_path:
         return 1.0
     # Normalize path separators
     path = source_path.replace("\\", "/")
-    # Exact file match first
+
+    # Exact file match takes precedence; pick the longest matching key.
+    best_weight = None
+    best_len = -1
     for key, weight in weights.items():
-        if not key.endswith("/") and path.endswith(key.replace("\\", "/")):
-            return weight
-    # Prefix/directory match
+        nkey = key.replace("\\", "/")
+        if not nkey.endswith("/") and path.endswith(nkey) and len(nkey) > best_len:
+            best_len, best_weight = len(nkey), weight
+    if best_weight is not None:
+        return best_weight
+
+    # Directory/prefix match; pick the longest (most specific) matching key.
+    best_len = -1
     for key, weight in weights.items():
-        if key.endswith("/") and ("/" + key in "/" + path or path.startswith(key)):
-            return weight
+        nkey = key.replace("\\", "/")
+        if nkey.endswith("/") and (("/" + nkey) in ("/" + path) or path.startswith(nkey)) and len(nkey) > best_len:
+            best_len, best_weight = len(nkey), weight
+    if best_len >= 0:
+        return best_weight
+
     return 1.0
 
 def extract_file_date(source_path: str):
@@ -96,8 +113,20 @@ def rerank(results: list, query: str, cfg: dict) -> list:
 
     scored = []
     for item in results:
-        raw_score = float(item.get("score", 0.0))
-        source = item.get("source_path", "") or item.get("path", "") or ""
+        try:
+            raw_score = float(item.get("score", 0.0))
+        except (TypeError, ValueError):
+            # Tolerate malformed scores rather than crashing the recall path.
+            raw_score = 0.0
+        # memsearch emits the file path under "source"; keep "source_path"/"path"
+        # as fallbacks for other producers. Without "source" the reranker reads
+        # an empty path and silently applies no authority or recency weighting.
+        source = (
+            item.get("source_path", "")
+            or item.get("path", "")
+            or item.get("source", "")
+            or ""
+        )
 
         # Stage 1 — Authority Boost
         auth = authority_multiplier(source, weights)
@@ -110,16 +139,19 @@ def rerank(results: list, query: str, cfg: dict) -> list:
         scored.append({**item, "_s1": s1, "_s2": s2})
 
     # Stage 3 — Floor-Ratio Gating
+    # Drop low-relevance noise: anything scoring below floor_ratio of the top
+    # result is gated out. The top result always survives (floor_ratio < 1).
     top_s2 = max(x["_s2"] for x in scored) if scored else 1.0
     threshold = top_s2 * floor_ratio
 
     final = []
     for item in scored:
         s2 = item["_s2"]
-        final_score = s2  # gated: no further boost when below threshold
+        if s2 < threshold:
+            continue
         final.append({
             **{k: v for k, v in item.items() if not k.startswith("_")},
-            "final_score": round(final_score, 6),
+            "final_score": round(s2, 6),
             "reranked": True,
         })
 

@@ -106,6 +106,7 @@ These are core system functions handled by scripts. Check them before searching 
 | "stop crons", "stop scheduled jobs" | Run `bash scripts/stop-crons.sh` |
 | "cron status", "status crons" | Run `bash scripts/status-crons.sh` |
 | "cron logs", "logs crons" | Run `bash scripts/logs-crons.sh` |
+| "setup memory", "memory setup", "enable searchable memory" | Run `bash scripts/setup-memory.sh` |
 
 ### Add Client Flow
 
@@ -520,6 +521,7 @@ Some skills use external services for enhanced functionality. API keys are store
 | Google Gemini | `GEMINI_API_KEY` | `viz-nano-banana` | Image generation via Gemini 3 Pro Image | No fallback |
 | HeyGen | `HEYGEN_API_KEY` | `viz-ugc-heygen` | AI avatar video generation | No fallback |
 | Google Stitch | gcloud auth | `tool-stitch`, `viz-stitch-design` | UI design generation and export | No fallback |
+| Zilliz Cloud | `ZILLIZ_URI`, `ZILLIZ_TOKEN` | `scripts/setup-memory.*` on native Windows | Remote Milvus backend for MemSearch semantic recall; free clusters should use AWS `eu-central-1` (Frankfurt) or GCP `us-west-1` (Oregon). Windows disables real-time `memsearch watch` with `MEMSEARCH_NO_WATCH=1`; refresh indexing through initial/manual index or the managed cron runtime. | macOS/Linux use local Milvus Lite; Windows can use WSL/Linux or skip semantic recall. Use `scripts/stop-memsearch-watchers.ps1` to clear old watcher processes. |
 
 ### Rules for Skills Using External Services
 

@@ -60,6 +60,7 @@ if echo "$PULL_OUTPUT" | grep -q "Already up to date"; then
 fi
 
 NEW_HEAD=$(git rev-parse HEAD)
+NEW_VERSION=$(read_agentic_os_version)
 COMMIT_COUNT=0
 if $HAS_UPSTREAM_CHANGES; then
     COMMIT_COUNT=$(git log --oneline "${OLD_HEAD}..${NEW_HEAD}" 2>/dev/null | wc -l | tr -d ' ')

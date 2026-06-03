@@ -169,6 +169,36 @@ try {
     Assert-Exists (Join-Path $repo ".planning\STATE.md")
     Assert-LogNotContains "npx -y @opengsd/get-shit-done-redux@latest --global --claude"
 
+    # Redux install must not be flagged as legacy (mirrors the bash regression test).
+    Reset-Case
+    $base = New-TestWorkspace "redux-not-legacy"
+    $repo = Join-Path $base "repo"
+    $global = Join-Path $base "global-claude"
+    Set-Variable -Name HOME -Value (Join-Path $base "home") -Scope Global -Force
+    $env:CLAUDE_CONFIG_DIR = $global
+    New-Item -ItemType Directory -Force -Path (Join-Path $global "get-shit-done"), (Join-Path $global "agents") | Out-Null
+    Set-Content -LiteralPath (Join-Path $global "get-shit-done\VERSION") -Value "1.1.0"
+    Set-Content -LiteralPath (Join-Path $global "agents\gsd-review.md") -Value ""
+
+    $findings = @(Find-AgenticOsLegacyGsd -RepoRoot $repo)
+    if ($findings.Count -ne 0) {
+        Fail-Test "Expected no legacy findings for a Redux install, got: $($findings.Path -join ', ')"
+    }
+
+    # Get-AgenticOsGsdReduxVersion reports the installed version, $null when absent.
+    if ((Get-AgenticOsGsdReduxVersion -RepoRoot $repo) -ne "1.1.0") {
+        Fail-Test "Expected redux version 1.1.0"
+    }
+
+    Reset-Case
+    $base = New-TestWorkspace "no-redux-version"
+    $repo = Join-Path $base "repo"
+    Set-Variable -Name HOME -Value (Join-Path $base "home") -Scope Global -Force
+    $env:CLAUDE_CONFIG_DIR = Join-Path $base "global-claude"
+    if ($null -ne (Get-AgenticOsGsdReduxVersion -RepoRoot $repo)) {
+        Fail-Test "Expected no redux version when no runtime is present"
+    }
+
     Write-Host "PowerShell GSD migration helper tests passed."
 }
 finally {
