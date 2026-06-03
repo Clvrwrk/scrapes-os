@@ -365,11 +365,13 @@ function Ensure-MemSearchCli {
     }
 
     Info "Installing memsearch[onnx] with uv..."
-    & uv tool install "memsearch[onnx]"
+    # memsearch requires Python >=3.10. Pin a managed interpreter so uv provisions
+    # a compatible one instead of failing on an older system python.
+    & uv tool install --python 3.12 "memsearch[onnx]"
     if ($LASTEXITCODE -ne 0) {
         Fail "memsearch install failed."
         Write-Host "  You can retry manually:"
-        Write-Host "    uv tool install `"memsearch[onnx]`""
+        Write-Host "    uv tool install --python 3.12 `"memsearch[onnx]`""
         return $false
     }
 
